@@ -1,0 +1,5 @@
+.alpackages/
+.snapshots/
+.build/
+*.app
+*.g.xlf

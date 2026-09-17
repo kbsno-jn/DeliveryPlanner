@@ -1,0 +1,579 @@
+namespace Knowit.DeliveryPlanner;
+
+using Microsoft.Foundation.UOM;
+using Microsoft.Inventory.Item;
+using Microsoft.Inventory.Journal;
+using Microsoft.Inventory.Ledger;
+using Microsoft.Inventory.Location;
+using Microsoft.Inventory.Posting;
+using Microsoft.Inventory.Tracking;
+using Microsoft.Inventory.Transfer;
+using Microsoft.Sales.Customer;
+using Microsoft.Sales.Document;
+
+codeunit 70010 "DP Test Data KBS"
+{
+    procedure CreateAll()
+    begin
+        CreateBaseSetup();
+        CreateFordelingScenario();
+        CreateFordeling2Scenario();
+        CreateKapasitetScenario();
+        CreateKolliScenario();
+        CreateUnderveisScenario();
+        CreateReservasjonerScenario();
+        CreateReturerScenario();
+        CreateManglendeHistorikkScenario();
+        CreateVarianterScenario();
+        CreatePresisjonScenario();
+        CreateBlokkertScenario();
+        CreateUgyldigOppsettScenario();
+        Message(AllCreatedMsg);
+    end;
+
+    procedure ToggleInvalidSetup()
+    var
+        SKU: Record "Stockkeeping Unit";
+    begin
+        SKU.Get(BadSetupStoreTok, BadSetupItemTok, '');
+        SKU."DP Enabled KBS" := not SKU."DP Enabled KBS";
+        SKU.Modify(true);
+        if SKU."DP Enabled KBS" then
+            Message(InvalidSetupOnMsg)
+        else
+            Message(InvalidSetupOffMsg);
+    end;
+
+    local procedure CreateBaseSetup()
+    var
+        Management: Codeunit "DP Management KBS";
+        Setup: Record "DP Setup KBS";
+    begin
+        Management.CreateDefaults();
+        CreateLocation(HubLocTok, HubNameLbl, false);
+        CreateLocation(TransitLocTok, TransitNameLbl, true);
+        Setup.Get('');
+        Setup.Validate("Hub Location Code", HubLocTok);
+        Setup.Enabled := true;
+        Setup.Modify(true);
+        EnsureCustomer(CustomerTok);
+    end;
+
+    // Behov 100 og 20, vekt 2 og 1, tilgjengelig 30 => forventet tildeling 20 og 10.
+    local procedure CreateFordelingScenario()
+    begin
+        CreateItem(FordItemTok, FordItemDescLbl, 0);
+        CreateStore(FordStoreATok, FordStoreADescLbl, 'MEDIUM');
+        CreateStore(FordStoreBTok, FordStoreBDescLbl, 'SMALL');
+        PostAdjustment(FordItemTok, '', HubLocTok, 30, Today());
+        CreateSKU(FordItemTok, '', FordStoreATok, 100, 100, 0);
+        CreateSKU(FordItemTok, '', FordStoreBTok, 20, 20, 0);
+    end;
+
+    // Tre butikker der den minste metter sitt behov først; resten fordeles på nytt etter vekt.
+    local procedure CreateFordeling2Scenario()
+    begin
+        CreateItem(Ford2ItemTok, Ford2ItemDescLbl, 0);
+        CreateStore(Ford2StoreXTok, Ford2StoreXDescLbl, 'MEDIUM');
+        CreateStore(Ford2StoreYTok, Ford2StoreYDescLbl, 'SMALL');
+        CreateStore(Ford2StoreZTok, Ford2StoreZDescLbl, 'SMALL');
+        PostAdjustment(Ford2ItemTok, '', HubLocTok, 45, Today());
+        CreateSKU(Ford2ItemTok, '', HubLocTok, 0, 5, 0);
+        CreateSKU(Ford2ItemTok, '', Ford2StoreXTok, 100, 100, 0);
+        CreateSKU(Ford2ItemTok, '', Ford2StoreYTok, 20, 20, 0);
+        CreateSKU(Ford2ItemTok, '', Ford2StoreZTok, 5, 5, 0);
+    end;
+
+    // Beholdning 90, maksimum 100, åpent salg 30 => høyst 10 nye enheter.
+    local procedure CreateKapasitetScenario()
+    begin
+        CreateItem(KapaItemTok, KapaItemDescLbl, 0);
+        CreateStore(KapaStoreTok, KapaStoreDescLbl, 'SMALL');
+        PostAdjustment(KapaItemTok, '', HubLocTok, 500, Today());
+        PostAdjustment(KapaItemTok, '', KapaStoreTok, 90, Today());
+        CreateSKU(KapaItemTok, '', KapaStoreTok, 100, 100, 0);
+        CreateSalesOrder(KapaSalesOrderTok, KapaItemTok, KapaStoreTok, 30);
+    end;
+
+    // Behov 11 og ordremultippel 6 => høyst 6.
+    local procedure CreateKolliScenario()
+    begin
+        CreateItem(KolliItemTok, KolliItemDescLbl, 0);
+        CreateStore(KolliStoreTok, KolliStoreDescLbl, 'SMALL');
+        PostAdjustment(KolliItemTok, '', HubLocTok, 100, Today());
+        CreateSKU(KolliItemTok, '', KolliStoreTok, 11, 11, 6);
+    end;
+
+    // Overføring på 20, sendt 12 og mottatt 5 => 8 utestående fra hovedlageret og 15 inngående til butikken.
+    local procedure CreateUnderveisScenario()
+    var
+        TransferHeader: Record "Transfer Header";
+        TransferLine: Record "Transfer Line";
+        ReleaseTransfer: Codeunit "Release Transfer Document";
+    begin
+        CreateItem(UnderItemTok, UnderItemDescLbl, 0);
+        CreateStore(UnderStoreTok, UnderStoreDescLbl, 'SMALL');
+        PostAdjustment(UnderItemTok, '', HubLocTok, 100, Today());
+        CreateSKU(UnderItemTok, '', UnderStoreTok, 100, 100, 0);
+
+        if TransferHeader.Get(UnderTransferOrderTok) then
+            exit;
+        TransferHeader.Init();
+        TransferHeader."No." := UnderTransferOrderTok;
+        TransferHeader.Insert(true);
+        TransferHeader.Validate("Transfer-from Code", HubLocTok);
+        TransferHeader.Validate("Transfer-to Code", UnderStoreTok);
+        TransferHeader.Validate("In-Transit Code", TransitLocTok);
+        TransferHeader.Modify(true);
+
+        TransferLine.Init();
+        TransferLine."Document No." := TransferHeader."No.";
+        TransferLine."Line No." := 10000;
+        TransferLine.Insert(true);
+        TransferLine.Validate("Item No.", UnderItemTok);
+        TransferLine.Validate(Quantity, 20);
+        TransferLine.Modify(true);
+
+        ReleaseTransfer.Release(TransferHeader);
+
+        TransferLine.Get(TransferHeader."No.", 10000);
+        TransferLine.Validate("Qty. to Ship", 12);
+        TransferLine.Modify(true);
+        Codeunit.Run(Codeunit::"TransferOrder-Post Shipment", TransferHeader);
+
+        // A partial shipment may split the shipped quantity onto a derived line, so
+        // receive against whichever line(s) actually carry unreceived shipped quantity.
+        SetQuantityToReceive(TransferHeader."No.", 5);
+        Codeunit.Run(Codeunit::"TransferOrder-Post Receipt", TransferHeader);
+    end;
+
+    local procedure SetQuantityToReceive(DocumentNo: Code[20]; QuantityToReceive: Decimal)
+    var
+        TransferLine: Record "Transfer Line";
+        Remaining: Decimal;
+        LineAvailable: Decimal;
+    begin
+        Remaining := QuantityToReceive;
+        TransferLine.SetRange("Document No.", DocumentNo);
+        if TransferLine.FindSet(true) then
+            repeat
+                LineAvailable := TransferLine."Qty. Shipped (Base)" - TransferLine."Qty. Received (Base)";
+                if (Remaining > 0) and (LineAvailable > 0) then begin
+                    if LineAvailable > Remaining then
+                        LineAvailable := Remaining;
+                    TransferLine.Validate("Qty. to Receive", LineAvailable);
+                    TransferLine.Modify(true);
+                    Remaining -= LineAvailable;
+                end;
+            until TransferLine.Next() = 0;
+    end;
+
+    // Beholdning 100 og salgsordre 30, hvorav 20 reservert, gir 70 tilgjengelig før sikkerhetslager.
+    local procedure CreateReservasjonerScenario()
+    var
+        SalesLine: Record "Sales Line";
+        ItemLedgerEntry: Record "Item Ledger Entry";
+    begin
+        CreateItem(ReserveItemTok, ReserveItemDescLbl, 0);
+        CreateStore(ReserveStoreTok, ReserveStoreDescLbl, 'SMALL');
+        PostAdjustment(ReserveItemTok, '', HubLocTok, 100, Today());
+        CreateSKU(ReserveItemTok, '', ReserveStoreTok, 200, 200, 0);
+        SalesLine := CreateSalesOrder(ReserveSalesOrderTok, ReserveItemTok, HubLocTok, 30);
+
+        ItemLedgerEntry.SetRange("Item No.", ReserveItemTok);
+        ItemLedgerEntry.SetRange("Location Code", HubLocTok);
+        ItemLedgerEntry.SetRange(Positive, true);
+        if ItemLedgerEntry.FindLast() then
+            AddReservationPair(ReserveItemTok, HubLocTok, 20, ItemLedgerEntry."Entry No.",
+                Database::"Sales Line", SalesLine."Document Type".AsInteger(), SalesLine."Document No.", SalesLine."Line No.");
+    end;
+
+    // Salg og returer i historikkperioden gir netto daglig salg.
+    local procedure CreateReturerScenario()
+    begin
+        CreateItem(ReturItemTok, ReturItemDescLbl, 0);
+        CreateStore(ReturStoreTok, ReturStoreDescLbl, 'SMALL');
+        PostSale(ReturItemTok, '', ReturStoreTok, 112, Today() - 56);
+        PostSale(ReturItemTok, '', ReturStoreTok, -56, Today() - 30);
+        CreateSKU(ReturItemTok, '', ReturStoreTok, 1000, 0, 0);
+    end;
+
+    // Ingen salgshistorikk => målet er sikkerhetslageret.
+    local procedure CreateManglendeHistorikkScenario()
+    begin
+        CreateItem(NoHistItemTok, NoHistItemDescLbl, 0);
+        CreateStore(NoHistStoreTok, NoHistStoreDescLbl, 'SMALL');
+        CreateSKU(NoHistItemTok, '', NoHistStoreTok, 1000, 15, 0);
+    end;
+
+    // Samme vare, to varianter, uavhengige hovedlagerbeholdninger.
+    local procedure CreateVarianterScenario()
+    var
+        Variant: Record "Item Variant";
+    begin
+        CreateItem(VariantItemTok, VariantItemDescLbl, 0);
+        if not Variant.Get(VariantItemTok, VariantCodeTok) then begin
+            Variant.Init();
+            Variant.Validate("Item No.", VariantItemTok);
+            Variant.Validate(Code, VariantCodeTok);
+            Variant.Validate(Description, VariantDescLbl);
+            Variant.Insert(true);
+        end;
+        CreateStore(VariantStoreATok, VariantStoreADescLbl, 'SMALL');
+        CreateStore(VariantStoreBTok, VariantStoreBDescLbl, 'SMALL');
+        PostAdjustment(VariantItemTok, '', HubLocTok, 15, Today());
+        PostAdjustment(VariantItemTok, VariantCodeTok, HubLocTok, 25, Today());
+        CreateSKU(VariantItemTok, '', VariantStoreATok, 50, 50, 0);
+        CreateSKUWithVariant(VariantItemTok, VariantCodeTok, VariantStoreBTok, 50, 50, 0);
+    end;
+
+    // Brøkpresisjon 0,5 uten ordremultippel: behov 10,3 rundes ned til 10,0.
+    local procedure CreatePresisjonScenario()
+    begin
+        CreateItem(PresisjonItemTok, PresisjonItemDescLbl, 0.5);
+        CreateStore(PresisjonStoreTok, PresisjonStoreDescLbl, 'SMALL');
+        PostAdjustment(PresisjonItemTok, '', HubLocTok, 100, Today());
+        CreateSKU(PresisjonItemTok, '', PresisjonStoreTok, 10.3, 10.3, 0);
+    end;
+
+    // Blokkert vare skal alltid gi behov 0, uansett mål.
+    local procedure CreateBlokkertScenario()
+    var
+        Item: Record Item;
+    begin
+        CreateItem(BlockedItemTok, BlockedItemDescLbl, 0);
+        Item.Get(BlockedItemTok);
+        Item.Validate(Blocked, true);
+        Item.Modify(true);
+        CreateStore(BlockedStoreTok, BlockedStoreDescLbl, 'SMALL');
+        PostAdjustment(BlockedItemTok, '', HubLocTok, 100, Today());
+        CreateSKU(BlockedItemTok, '', BlockedStoreTok, 50, 50, 0);
+    end;
+
+    // Ugyldig SKU (null makslager) opprettes inaktiv. Bruk "Slå av/på ugyldig oppsett" for å teste feilmeldingen isolert.
+    local procedure CreateUgyldigOppsettScenario()
+    var
+        SKU: Record "Stockkeeping Unit";
+    begin
+        CreateItem(BadSetupItemTok, BadSetupItemDescLbl, 0);
+        CreateStore(BadSetupStoreTok, BadSetupStoreDescLbl, 'SMALL');
+        if SKU.Get(BadSetupStoreTok, BadSetupItemTok, '') then
+            exit;
+        SKU.Init();
+        SKU.Validate("Location Code", BadSetupStoreTok);
+        SKU.Validate("Item No.", BadSetupItemTok);
+        SKU.Insert(true);
+        SKU.Validate("Replenishment System", SKU."Replenishment System"::Transfer);
+        SKU.Validate("Transfer-from Code", HubLocTok);
+        SKU.Validate("Maximum Inventory", 0);
+        SKU.Validate("DP Enabled KBS", false);
+        SKU.Modify(true);
+    end;
+
+    local procedure CreateLocation(LocationCode: Code[10]; LocationName: Text[50]; UseAsInTransit: Boolean)
+    var
+        Location: Record Location;
+    begin
+        if Location.Get(LocationCode) then
+            exit;
+        Location.Init();
+        Location.Validate(Code, LocationCode);
+        Location.Insert(true);
+        Location.Validate(Name, LocationName);
+        Location.Validate("Use As In-Transit", UseAsInTransit);
+        Location.Modify(true);
+    end;
+
+    local procedure CreateStore(StoreCode: Code[10]; StoreName: Text[50]; CategoryCode: Code[10])
+    var
+        Location: Record Location;
+        Route: Record "Transfer Route";
+    begin
+        CreateLocation(StoreCode, StoreName, false);
+        Location.Get(StoreCode);
+        Location.Validate("DP Category Code KBS", CategoryCode);
+        Location.Validate("DP Enabled KBS", true);
+        Location.Modify(true);
+        if Route.Get(HubLocTok, StoreCode) then
+            exit;
+        Route.Init();
+        Route.Validate("Transfer-from Code", HubLocTok);
+        Route.Validate("Transfer-to Code", StoreCode);
+        Route.Insert(true);
+        Route.Validate("In-Transit Code", TransitLocTok);
+        Route.Modify(true);
+    end;
+
+    local procedure CreateItem(ItemNo: Code[20]; Description: Text[50]; RoundingPrecision: Decimal)
+    var
+        Item: Record Item;
+        UnitOfMeasure: Record "Unit of Measure";
+        ItemUnitOfMeasure: Record "Item Unit of Measure";
+    begin
+        if Item.Get(ItemNo) then
+            exit;
+        if not UnitOfMeasure.Get(BaseUoMTok) then begin
+            UnitOfMeasure.Init();
+            UnitOfMeasure.Code := BaseUoMTok;
+            UnitOfMeasure.Description := BaseUoMTok;
+            UnitOfMeasure.Insert(true);
+        end;
+        Item.Init();
+        Item.Validate("No.", ItemNo);
+        Item.Insert(true);
+        Item.Validate(Description, Description);
+        Item.Validate(Type, Item.Type::Inventory);
+        Item.Validate("Base Unit of Measure", BaseUoMTok);
+        Item.Modify(true);
+        if not ItemUnitOfMeasure.Get(ItemNo, BaseUoMTok) then begin
+            ItemUnitOfMeasure.Init();
+            ItemUnitOfMeasure."Item No." := ItemNo;
+            ItemUnitOfMeasure.Code := BaseUoMTok;
+            ItemUnitOfMeasure."Qty. per Unit of Measure" := 1;
+            ItemUnitOfMeasure.Insert(true);
+        end;
+        if RoundingPrecision > 0 then begin
+            ItemUnitOfMeasure."Qty. Rounding Precision" := RoundingPrecision;
+            ItemUnitOfMeasure.Modify(true);
+        end;
+    end;
+
+    local procedure CreateSKU(ItemNo: Code[20]; VariantCode: Code[10]; LocationCode: Code[10]; MaximumInventory: Decimal; SafetyStock: Decimal; OrderMultiple: Decimal)
+    var
+        SKU: Record "Stockkeeping Unit";
+    begin
+        if SKU.Get(LocationCode, ItemNo, VariantCode) then
+            exit;
+        SKU.Init();
+        SKU.Validate("Location Code", LocationCode);
+        SKU.Validate("Item No.", ItemNo);
+        SKU.Insert(true);
+        SKU.Validate("Maximum Inventory", MaximumInventory);
+        SKU.Validate("Safety Stock Quantity", SafetyStock);
+        SKU.Validate("Order Multiple", OrderMultiple);
+        if LocationCode <> HubLocTok then begin
+            SKU.Validate("Replenishment System", SKU."Replenishment System"::Transfer);
+            SKU.Validate("Transfer-from Code", HubLocTok);
+            SKU.Validate("DP Enabled KBS", true);
+        end;
+        SKU.Modify(true);
+    end;
+
+    local procedure CreateSKUWithVariant(ItemNo: Code[20]; VariantCode: Code[10]; LocationCode: Code[10]; MaximumInventory: Decimal; SafetyStock: Decimal; OrderMultiple: Decimal)
+    var
+        SKU: Record "Stockkeeping Unit";
+    begin
+        if SKU.Get(LocationCode, ItemNo, VariantCode) then
+            exit;
+        SKU.Init();
+        SKU.Validate("Location Code", LocationCode);
+        SKU.Validate("Item No.", ItemNo);
+        SKU.Validate("Variant Code", VariantCode);
+        SKU.Insert(true);
+        SKU.Validate("Maximum Inventory", MaximumInventory);
+        SKU.Validate("Safety Stock Quantity", SafetyStock);
+        SKU.Validate("Order Multiple", OrderMultiple);
+        SKU.Validate("Replenishment System", SKU."Replenishment System"::Transfer);
+        SKU.Validate("Transfer-from Code", HubLocTok);
+        SKU.Validate("DP Enabled KBS", true);
+        SKU.Modify(true);
+    end;
+
+    local procedure EnsureCustomer(CustomerNo: Code[20])
+    var
+        Customer: Record Customer;
+    begin
+        if Customer.Get(CustomerNo) then
+            exit;
+        Customer.Init();
+        Customer."No." := CustomerNo;
+        Customer.Insert(true);
+        Customer.Validate(Name, CustomerNameLbl);
+        Customer.Modify(true);
+    end;
+
+    local procedure CreateSalesOrder(DocNo: Code[20]; ItemNo: Code[20]; LocationCode: Code[10]; Quantity: Decimal) SalesLine: Record "Sales Line"
+    var
+        SalesHeader: Record "Sales Header";
+    begin
+        if not SalesHeader.Get(SalesHeader."Document Type"::Order, DocNo) then begin
+            SalesHeader.Init();
+            SalesHeader."Document Type" := SalesHeader."Document Type"::Order;
+            SalesHeader."No." := DocNo;
+            SalesHeader.Insert(true);
+            SalesHeader.Validate("Sell-to Customer No.", CustomerTok);
+            SalesHeader.Modify(true);
+        end;
+        if SalesLine.Get(SalesHeader."Document Type", SalesHeader."No.", 10000) then
+            exit;
+        SalesLine.Init();
+        SalesLine."Document Type" := SalesHeader."Document Type";
+        SalesLine."Document No." := SalesHeader."No.";
+        SalesLine."Line No." := 10000;
+        SalesLine.Insert(true);
+        SalesLine.Validate(Type, SalesLine.Type::Item);
+        SalesLine.Validate("No.", ItemNo);
+        SalesLine.Validate("Location Code", LocationCode);
+        SalesLine.Validate(Quantity, Quantity);
+        SalesLine.Modify(true);
+    end;
+
+    local procedure AddReservationPair(ItemNo: Code[20]; LocationCode: Code[10]; Quantity: Decimal; SupplyEntryNo: Integer; DemandSourceType: Integer; DemandSourceSubtype: Integer; DemandSourceID: Code[20]; DemandSourceRefNo: Integer)
+    var
+        ReservationEntry: Record "Reservation Entry";
+        EntryNo: Integer;
+    begin
+        if ReservationEntry.FindLast() then
+            EntryNo := ReservationEntry."Entry No.";
+        ReservationEntry.Init();
+        ReservationEntry."Entry No." := EntryNo + 1;
+        ReservationEntry.Positive := true;
+        ReservationEntry."Item No." := ItemNo;
+        ReservationEntry."Location Code" := LocationCode;
+        ReservationEntry."Reservation Status" := ReservationEntry."Reservation Status"::Reservation;
+        ReservationEntry."Source Type" := Database::"Item Ledger Entry";
+        ReservationEntry."Source Ref. No." := SupplyEntryNo;
+        ReservationEntry."Quantity (Base)" := Quantity;
+        ReservationEntry.Insert(false);
+        // The demand row shares the same Entry No.; only the Positive flag differs, which is how the pair is linked.
+        ReservationEntry.Positive := false;
+        ReservationEntry."Source Type" := DemandSourceType;
+        ReservationEntry."Source Subtype" := DemandSourceSubtype;
+        ReservationEntry."Source ID" := DemandSourceID;
+        ReservationEntry."Source Ref. No." := DemandSourceRefNo;
+        ReservationEntry."Quantity (Base)" := -Quantity;
+        ReservationEntry.Insert(false);
+    end;
+
+    local procedure EnsureJournal()
+    var
+        ItemJournalTemplate: Record "Item Journal Template";
+        ItemJournalBatch: Record "Item Journal Batch";
+    begin
+        if not ItemJournalTemplate.Get(JournalTemplateTok) then begin
+            ItemJournalTemplate.Init();
+            ItemJournalTemplate.Name := JournalTemplateTok;
+            ItemJournalTemplate.Description := JournalDescLbl;
+            ItemJournalTemplate.Type := ItemJournalTemplate.Type::Item;
+            ItemJournalTemplate.Insert(true);
+        end;
+        if not ItemJournalBatch.Get(JournalTemplateTok, JournalBatchTok) then begin
+            ItemJournalBatch.Init();
+            ItemJournalBatch."Journal Template Name" := JournalTemplateTok;
+            ItemJournalBatch.Name := JournalBatchTok;
+            ItemJournalBatch.Description := JournalDescLbl;
+            ItemJournalBatch.Insert(true);
+        end;
+    end;
+
+    local procedure PostAdjustment(ItemNo: Code[20]; VariantCode: Code[10]; LocationCode: Code[10]; Quantity: Decimal; PostingDate: Date)
+    begin
+        PostItemJournalLine(ItemNo, VariantCode, LocationCode, Enum::"Item Journal Entry Type"::"Positive Adjmt.", Quantity, PostingDate);
+    end;
+
+    local procedure PostSale(ItemNo: Code[20]; VariantCode: Code[10]; LocationCode: Code[10]; Quantity: Decimal; PostingDate: Date)
+    begin
+        PostItemJournalLine(ItemNo, VariantCode, LocationCode, Enum::"Item Journal Entry Type"::Sale, Quantity, PostingDate);
+    end;
+
+    local procedure PostItemJournalLine(ItemNo: Code[20]; VariantCode: Code[10]; LocationCode: Code[10]; EntryType: Enum "Item Journal Entry Type"; Quantity: Decimal; PostingDate: Date)
+    var
+        ItemJournalLine: Record "Item Journal Line";
+    begin
+        EnsureJournal();
+        NextJournalLineNo += 10000;
+        ItemJournalLine.Init();
+        ItemJournalLine."Journal Template Name" := JournalTemplateTok;
+        ItemJournalLine."Journal Batch Name" := JournalBatchTok;
+        ItemJournalLine."Line No." := NextJournalLineNo;
+        ItemJournalLine.Insert(true);
+        ItemJournalLine.Validate("Posting Date", PostingDate);
+        ItemJournalLine.Validate("Document No.", JournalDocNoTok);
+        ItemJournalLine.Validate("Entry Type", EntryType);
+        ItemJournalLine.Validate("Item No.", ItemNo);
+        if VariantCode <> '' then
+            ItemJournalLine.Validate("Variant Code", VariantCode);
+        ItemJournalLine.Validate("Location Code", LocationCode);
+        ItemJournalLine.Validate(Quantity, Quantity);
+        ItemJournalLine.Modify(true);
+        Codeunit.Run(Codeunit::"Item Jnl.-Post Line", ItemJournalLine);
+    end;
+
+    var
+        NextJournalLineNo: Integer;
+        AllCreatedMsg: Label 'Testdata for DeliveryPlanner er opprettet. Åpne DeliveryPlanner-oppsett og klikk Beregn DeliveryPlanner.';
+        InvalidSetupOnMsg: Label 'Ugyldig oppsett er nå aktivert. Kjør Beregn DeliveryPlanner for å se feilmeldingen, slå det deretter av igjen.';
+        InvalidSetupOffMsg: Label 'Ugyldig oppsett er nå deaktivert igjen.';
+        HubNameLbl: Label 'DeliveryPlanner testhovedlager';
+        TransitNameLbl: Label 'DeliveryPlanner test-transitt';
+        CustomerNameLbl: Label 'DeliveryPlanner testkunde';
+        JournalDescLbl: Label 'DeliveryPlanner testdata';
+        VariantDescLbl: Label 'Testvariant';
+        FordItemDescLbl: Label 'Fordeling - vare';
+        FordStoreADescLbl: Label 'Fordeling - butikk A (behov 100, vekt 2)';
+        FordStoreBDescLbl: Label 'Fordeling - butikk B (behov 20, vekt 1)';
+        Ford2ItemDescLbl: Label 'Fordeling med metning - vare';
+        Ford2StoreXDescLbl: Label 'Fordeling metning - butikk X (behov 100, vekt 2)';
+        Ford2StoreYDescLbl: Label 'Fordeling metning - butikk Y (behov 20, vekt 1)';
+        Ford2StoreZDescLbl: Label 'Fordeling metning - butikk Z (behov 5, vekt 1)';
+        KapaItemDescLbl: Label 'Kapasitet - vare';
+        KapaStoreDescLbl: Label 'Kapasitet - butikk (beholdning 90, maks 100, salg 30)';
+        KolliItemDescLbl: Label 'Kolli - vare';
+        KolliStoreDescLbl: Label 'Kolli - butikk (behov 11, multippel 6)';
+        UnderItemDescLbl: Label 'Underveis - vare';
+        UnderStoreDescLbl: Label 'Underveis - butikk (overføring 20, sendt 12, mottatt 5)';
+        ReserveItemDescLbl: Label 'Reservasjoner - vare';
+        ReserveStoreDescLbl: Label 'Reservasjoner - butikk';
+        ReturItemDescLbl: Label 'Returer - vare';
+        ReturStoreDescLbl: Label 'Returer - butikk (salg 112, retur 56)';
+        NoHistItemDescLbl: Label 'Manglende historikk - vare';
+        NoHistStoreDescLbl: Label 'Manglende historikk - butikk (sikkerhetslager 15)';
+        VariantItemDescLbl: Label 'Varianter - vare';
+        VariantStoreADescLbl: Label 'Varianter - butikk A (uten variant)';
+        VariantStoreBDescLbl: Label 'Varianter - butikk B (variant V1)';
+        PresisjonItemDescLbl: Label 'Presisjon - vare (rundingspresisjon 0,5)';
+        PresisjonStoreDescLbl: Label 'Presisjon - butikk (behov 10,3)';
+        BlockedItemDescLbl: Label 'Blokkert - vare';
+        BlockedStoreDescLbl: Label 'Blokkert - butikk (behov 50, men blokkert)';
+        BadSetupItemDescLbl: Label 'Ugyldig oppsett - vare';
+        BadSetupStoreDescLbl: Label 'Ugyldig oppsett - butikk (null makslager)';
+        BaseUoMTok: Label 'STK', Locked = true;
+        CustomerTok: Label 'DPTESTKUNDE', Locked = true;
+        JournalTemplateTok: Label 'DPTEST', Locked = true;
+        JournalBatchTok: Label 'DPSEED', Locked = true;
+        JournalDocNoTok: Label 'DPSEED', Locked = true;
+        HubLocTok: Label 'DPHUB', Locked = true;
+        TransitLocTok: Label 'DPTRANS', Locked = true;
+        FordItemTok: Label 'DPFORD', Locked = true;
+        FordStoreATok: Label 'DPFORDA', Locked = true;
+        FordStoreBTok: Label 'DPFORDB', Locked = true;
+        Ford2ItemTok: Label 'DPFORD2', Locked = true;
+        Ford2StoreXTok: Label 'DPFORD2X', Locked = true;
+        Ford2StoreYTok: Label 'DPFORD2Y', Locked = true;
+        Ford2StoreZTok: Label 'DPFORD2Z', Locked = true;
+        KapaItemTok: Label 'DPKAPA', Locked = true;
+        KapaStoreTok: Label 'DPKAPAA', Locked = true;
+        KapaSalesOrderTok: Label 'DPKAPASO', Locked = true;
+        KolliItemTok: Label 'DPKOLLI', Locked = true;
+        KolliStoreTok: Label 'DPKOLLIA', Locked = true;
+        UnderItemTok: Label 'DPUNDER', Locked = true;
+        UnderStoreTok: Label 'DPUNDERA', Locked = true;
+        UnderTransferOrderTok: Label 'DPUNDERTO', Locked = true;
+        ReserveItemTok: Label 'DPRESERV', Locked = true;
+        ReserveStoreTok: Label 'DPRESERVA', Locked = true;
+        ReserveSalesOrderTok: Label 'DPRESERVSO', Locked = true;
+        ReturItemTok: Label 'DPRETUR', Locked = true;
+        ReturStoreTok: Label 'DPRETURA', Locked = true;
+        NoHistItemTok: Label 'DPNOHIST', Locked = true;
+        NoHistStoreTok: Label 'DPNOHISTA', Locked = true;
+        VariantItemTok: Label 'DPVARIANT', Locked = true;
+        VariantCodeTok: Label 'V1', Locked = true;
+        VariantStoreATok: Label 'DPVARA', Locked = true;
+        VariantStoreBTok: Label 'DPVARB', Locked = true;
+        PresisjonItemTok: Label 'DPPRESIS', Locked = true;
+        PresisjonStoreTok: Label 'DPPRESISA', Locked = true;
+        BlockedItemTok: Label 'DPBLOKKERT', Locked = true;
+        BlockedStoreTok: Label 'DPBLOKKA', Locked = true;
+        BadSetupItemTok: Label 'DPUGYLDIG', Locked = true;
+        BadSetupStoreTok: Label 'DPUGYLDIGA', Locked = true;
+}

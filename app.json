@@ -1,0 +1,32 @@
+{
+  "id": "34afd6a6-5218-47cc-b199-c6fb441adda8",
+  "name": "DeliveryPlanner",
+  "publisher": "Knowit Insight Business Solution AS",
+  "version": "1.0.0.0",
+  "brief": "Butikkforsyning gjennom standard rekvisisjonskladd",
+  "description": "Nattlig butikkforsyning med standard planberegning, salgsmål, makslager og vektet fordeling fra hovedlager.",
+  "privacyStatement": "",
+  "EULA": "",
+  "help": "",
+  "url": "",
+  "logo": "",
+  "dependencies": [],
+  "screenshots": [],
+  "platform": "1.0.0.0",
+  "application": "28.0.0.0",
+  "idRanges": [
+    {
+      "from": 62100,
+      "to": 62149
+    }
+  ],
+  "resourceExposurePolicy": {
+    "allowDebugging": true,
+    "allowDownloadingSource": true,
+    "includeSourceInSymbolFile": true
+  },
+  "runtime": "17.0",
+  "features": [
+    "NoImplicitWith"
+  ]
+}

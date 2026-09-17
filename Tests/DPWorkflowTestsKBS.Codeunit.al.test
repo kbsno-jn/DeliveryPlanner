@@ -1,0 +1,185 @@
+namespace Knowit.DeliveryPlanner;
+
+using Microsoft.Inventory.Requisition;
+
+codeunit 70003 "DP Workflow Tests KBS"
+{
+    Subtype = Test;
+    TestPermissions = Disabled;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure ManagedWorksheetIsReadOnlyButBatchSelectorRemainsUsable()
+    var
+        ManagedLine: Record "Requisition Line";
+        NormalLine: Record "Requisition Line";
+        Worksheet: TestPage "Req. Worksheet";
+    begin
+        CreateFixture(ManagedLine, NormalLine);
+        OpenWorksheet(Worksheet, ManagedLine);
+        AssertFalse(Worksheet.Description.Editable(), 'Managed descriptions must be read-only.');
+        AssertFalse(Worksheet.Quantity.Editable(), 'Managed quantities must be read-only.');
+        AssertFalse(Worksheet.CalculatePlan.Enabled(), 'Standard calculation must not overwrite managed proposals.');
+        AssertFalse(Worksheet.CarryOutActionMessage.Enabled(), 'Standard carry out must not bypass reallocation and release.');
+        AssertFalse(Worksheet."Delete All".Enabled(), 'Managed proposals must not be deleted manually.');
+        AssertTrue(Worksheet.CurrentJnlBatchName.Editable(), 'Users must be able to switch to another worksheet batch.');
+        Worksheet.Close();
+    end;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure OrdinaryWorksheetStillAllowsEditingAndInsertion()
+    var
+        ManagedLine: Record "Requisition Line";
+        NormalLine: Record "Requisition Line";
+        VerifyLine: Record "Requisition Line";
+        Worksheet: TestPage "Req. Worksheet";
+    begin
+        CreateFixture(ManagedLine, NormalLine);
+        OpenWorksheet(Worksheet, NormalLine);
+        AssertTrue(Worksheet.Description.Editable(), 'Normal worksheet fields must remain editable.');
+        AssertTrue(Worksheet.CalculatePlan.Enabled(), 'Standard calculation must remain available in a normal batch.');
+        AssertTrue(Worksheet.CarryOutActionMessage.Enabled(), 'Standard carry out must remain available in a normal batch.');
+        Worksheet.Description.SetValue('Edited ordinary line');
+        Worksheet.New();
+        Worksheet.Description.SetValue('Inserted ordinary line');
+        Worksheet.Close();
+
+        VerifyLine.Get(NormalLine."Worksheet Template Name", NormalLine."Journal Batch Name", NormalLine."Line No.");
+        if VerifyLine.Description <> 'Edited ordinary line' then
+            Error('The normal worksheet did not save its edited line.');
+        VerifyLine.SetRange("Worksheet Template Name", NormalLine."Worksheet Template Name");
+        VerifyLine.SetRange("Journal Batch Name", NormalLine."Journal Batch Name");
+        if VerifyLine.Count() <> 2 then
+            Error('The normal worksheet must contain the original and newly inserted line.');
+        VerifyLine.SetRange(Description, 'Inserted ordinary line');
+        AssertFalse(VerifyLine.IsEmpty(), 'The normal worksheet did not save its new line.');
+    end;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure ManagedBatchRejectsUnboundInsertion()
+    var
+        ManagedLine: Record "Requisition Line";
+        NormalLine: Record "Requisition Line";
+    begin
+        CreateFixture(ManagedLine, NormalLine);
+        ManagedLine."Line No." := 20000;
+        asserterror ManagedLine.Insert(false);
+        AssertPlannerError();
+        AssertFalse(ManagedLine.Get('DPUITEST', 'MANAGED', 20000), 'An unbound insert must not create a managed proposal.');
+    end;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure ManagedBatchRejectsUnboundModification()
+    var
+        ManagedLine: Record "Requisition Line";
+        NormalLine: Record "Requisition Line";
+    begin
+        CreateFixture(ManagedLine, NormalLine);
+        ManagedLine.Description := 'Unauthorized edit';
+        asserterror ManagedLine.Modify(false);
+        AssertPlannerError();
+        ManagedLine.Get('DPUITEST', 'MANAGED', 10000);
+        if ManagedLine.Description <> 'Managed fixture' then
+            Error('An unbound modification changed the managed proposal.');
+    end;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure ManagedLineCannotBeMovedToOrdinaryBatch()
+    var
+        ManagedLine: Record "Requisition Line";
+        NormalLine: Record "Requisition Line";
+    begin
+        CreateFixture(ManagedLine, NormalLine);
+        asserterror ManagedLine.Rename('DPUITEST', 'NORMAL', 20000);
+        AssertPlannerError();
+        AssertTrue(ManagedLine.Get('DPUITEST', 'MANAGED', 10000), 'A rejected rename must preserve the original managed proposal.');
+        AssertFalse(ManagedLine.Get('DPUITEST', 'NORMAL', 20000), 'A managed proposal must not escape its guard through renaming.');
+    end;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure ManagedBatchRejectsUnboundDeletion()
+    var
+        ManagedLine: Record "Requisition Line";
+        NormalLine: Record "Requisition Line";
+    begin
+        CreateFixture(ManagedLine, NormalLine);
+        asserterror ManagedLine.Delete(false);
+        AssertPlannerError();
+        AssertTrue(ManagedLine.Get('DPUITEST', 'MANAGED', 10000), 'An unbound delete must preserve the managed proposal.');
+    end;
+
+    local procedure CreateFixture(var ManagedLine: Record "Requisition Line"; var NormalLine: Record "Requisition Line")
+    var
+        Setup: Record "DP Setup KBS";
+        Template: Record "Req. Wksh. Template";
+        Batch: Record "Requisition Wksh. Name";
+    begin
+        // Configure the managed batch after seeding; the normal production guard stays enabled.
+        if not Setup.Get('') then begin
+            Setup.Init();
+            Setup.Insert(true);
+        end;
+        Setup."Worksheet Template Name" := '';
+        Setup."Worksheet Batch Name" := '';
+        Setup.Modify(true);
+
+        Template.Init();
+        Template.Name := 'DPUITEST';
+        Template.Type := Template.Type::"Req.";
+        Template.Validate(Recurring, false);
+        Template.Insert(true);
+        Batch.Init();
+        Batch."Worksheet Template Name" := Template.Name;
+        Batch.Name := 'MANAGED';
+        Batch.Insert(true);
+        Batch.Name := 'NORMAL';
+        Batch.Insert(true);
+
+        ManagedLine.Init();
+        ManagedLine."Worksheet Template Name" := Template.Name;
+        ManagedLine."Journal Batch Name" := 'MANAGED';
+        ManagedLine."Line No." := 10000;
+        ManagedLine.Description := 'Managed fixture';
+        ManagedLine.Insert(false);
+        NormalLine := ManagedLine;
+        NormalLine."Journal Batch Name" := 'NORMAL';
+        NormalLine.Description := 'Ordinary fixture';
+        NormalLine.Insert(false);
+
+        Setup."Worksheet Template Name" := Template.Name;
+        Setup."Worksheet Batch Name" := 'MANAGED';
+        Setup.Modify(true);
+    end;
+
+    local procedure OpenWorksheet(var Worksheet: TestPage "Req. Worksheet"; ReqLine: Record "Requisition Line")
+    begin
+        ReqLine.SetRange("Worksheet Template Name", ReqLine."Worksheet Template Name");
+        ReqLine.SetRange("Journal Batch Name", ReqLine."Journal Batch Name");
+        Worksheet.Trap();
+        Page.Run(Page::"Req. Worksheet", ReqLine);
+    end;
+
+    local procedure AssertPlannerError()
+    begin
+        if StrPos(GetLastErrorText(), 'DeliveryPlanner') = 0 then
+            Error('Expected a DeliveryPlanner access error. Actual: %1', GetLastErrorText());
+    end;
+
+    local procedure AssertTrue(Actual: Boolean; Context: Text)
+    begin
+        if not Actual then
+            Error(Context);
+    end;
+
+    local procedure AssertFalse(Actual: Boolean; Context: Text)
+    begin
+        if Actual then
+            Error(Context);
+    end;
+}
+

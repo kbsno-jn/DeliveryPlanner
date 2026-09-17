@@ -1,0 +1,140 @@
+namespace Knowit.DeliveryPlanner;
+
+codeunit 70001 "DP Allocation Tests KBS"
+{
+    Subtype = Test;
+    TestPermissions = Disabled;
+
+    [Test]
+    procedure AllocatesByWeightFromFirstUnit()
+    var
+        TempBuffer: Record "DP Allocation Buffer KBS" temporary;
+    begin
+        AddStore(TempBuffer, 'A', 100, 2, 1);
+        AddStore(TempBuffer, 'B', 20, 1, 1);
+        Allocation.Allocate(TempBuffer, 30);
+        AssertAllocation(TempBuffer, 'A', 20);
+        AssertAllocation(TempBuffer, 'B', 10);
+    end;
+
+    [Test]
+    procedure RedistributesSaturatedWeight()
+    var
+        TempBuffer: Record "DP Allocation Buffer KBS" temporary;
+    begin
+        AddStore(TempBuffer, 'A', 10, 3, 1);
+        AddStore(TempBuffer, 'B', 100, 2, 1);
+        AddStore(TempBuffer, 'C', 100, 1, 1);
+        Allocation.Allocate(TempBuffer, 60);
+        AssertAllocation(TempBuffer, 'A', 10);
+        AssertAllocation(TempBuffer, 'B', 33);
+        AssertAllocation(TempBuffer, 'C', 17);
+    end;
+
+    [Test]
+    procedure FloorsNeedWithoutChangingInput()
+    var
+        TempBuffer: Record "DP Allocation Buffer KBS" temporary;
+    begin
+        AddStore(TempBuffer, 'A', 11, 1, 6);
+        Allocation.Allocate(TempBuffer, 11);
+        AssertAllocation(TempBuffer, 'A', 6);
+        TempBuffer.Get('A');
+        AssertEquals(11, TempBuffer.Need, 'Original need must be retained.');
+    end;
+
+    [Test]
+    procedure DoesNotAllocatePartialPack()
+    var
+        TempBuffer: Record "DP Allocation Buffer KBS" temporary;
+    begin
+        AddStore(TempBuffer, 'A', 12, 1, 6);
+        Allocation.Allocate(TempBuffer, 5);
+        AssertAllocation(TempBuffer, 'A', 0);
+    end;
+
+    [Test]
+    procedure BreaksEqualRemaindersByLocation()
+    var
+        TempBuffer: Record "DP Allocation Buffer KBS" temporary;
+    begin
+        AddStore(TempBuffer, 'B', 10, 1, 1);
+        AddStore(TempBuffer, 'A', 10, 1, 1);
+        Allocation.Allocate(TempBuffer, 1);
+        AssertAllocation(TempBuffer, 'A', 1);
+        AssertAllocation(TempBuffer, 'B', 0);
+    end;
+
+    [Test]
+    procedure StopsAtTotalNeed()
+    var
+        TempBuffer: Record "DP Allocation Buffer KBS" temporary;
+    begin
+        AddStore(TempBuffer, 'A', 10, 1, 1);
+        AddStore(TempBuffer, 'B', 20, 2, 1);
+        Allocation.Allocate(TempBuffer, 100);
+        AssertAllocation(TempBuffer, 'A', 10);
+        AssertAllocation(TempBuffer, 'B', 20);
+    end;
+
+    [Test]
+    procedure RedistributesLargeUnusablePacksInBoundedTime()
+    var
+        TempBuffer: Record "DP Allocation Buffer KBS" temporary;
+    begin
+        AddStore(TempBuffer, 'A', 1000000000, 1, 1000000000);
+        AddStore(TempBuffer, 'B', 1000000000, 1, 0.00001);
+        AddStore(TempBuffer, 'C', 1000000000, 1, 0.00001);
+        Allocation.Allocate(TempBuffer, 999999999);
+        AssertAllocation(TempBuffer, 'A', 0);
+        AssertAllocation(TempBuffer, 'B', 499999999.5);
+        AssertAllocation(TempBuffer, 'C', 499999999.5);
+    end;
+
+    [Test]
+    procedure ZeroAvailabilityClearsPreviousAllocations()
+    var
+        TempBuffer: Record "DP Allocation Buffer KBS" temporary;
+    begin
+        AddStore(TempBuffer, 'A', 10, 1, 1);
+        Allocation.Allocate(TempBuffer, 10);
+        Allocation.Allocate(TempBuffer, 0);
+        AssertAllocation(TempBuffer, 'A', 0);
+        TempBuffer.Get('A');
+        AssertEquals(0, TempBuffer."Ideal Allocation", 'Ideal allocation must be reset.');
+    end;
+
+    [Test]
+    procedure RejectsZeroIncrement()
+    var
+        TempBuffer: Record "DP Allocation Buffer KBS" temporary;
+    begin
+        AddStore(TempBuffer, 'A', 10, 1, 0);
+        asserterror Allocation.Allocate(TempBuffer, 10);
+    end;
+
+    local procedure AddStore(var TempBuffer: Record "DP Allocation Buffer KBS" temporary; LocationCode: Code[10]; Need: Decimal; Weight: Decimal; Increment: Decimal)
+    begin
+        TempBuffer.Init();
+        TempBuffer."Location Code" := LocationCode;
+        TempBuffer.Need := Need;
+        TempBuffer.Weight := Weight;
+        TempBuffer.Increment := Increment;
+        TempBuffer.Insert();
+    end;
+
+    local procedure AssertAllocation(var TempBuffer: Record "DP Allocation Buffer KBS" temporary; LocationCode: Code[10]; Expected: Decimal)
+    begin
+        TempBuffer.Get(LocationCode);
+        AssertEquals(Expected, TempBuffer.Allocation, StrSubstNo('Allocation at %1.', LocationCode));
+    end;
+
+    local procedure AssertEquals(Expected: Decimal; Actual: Decimal; Context: Text)
+    begin
+        if Expected <> Actual then
+            Error('%1 Expected %2; actual %3.', Context, Expected, Actual);
+    end;
+
+    var
+        Allocation: Codeunit "DP Allocation KBS";
+}

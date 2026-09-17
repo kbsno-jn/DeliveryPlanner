@@ -1,0 +1,75 @@
+namespace Knowit.DeliveryPlanner;
+
+page 70010 "DP Test Data KBS"
+{
+    Caption = 'DeliveryPlanner testdata';
+    PageType = Card;
+    ApplicationArea = All;
+    UsageCategory = Administration;
+    SourceTable = "DP Setup KBS";
+    InsertAllowed = false;
+    DeleteAllowed = false;
+    ModifyAllowed = false;
+
+    layout
+    {
+        area(Content)
+        {
+            group(Info)
+            {
+                Caption = 'Om denne siden';
+                label(InfoText)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Oppretter et sett med hovedlager, transitt, butikker, varer og ordre som dekker eksemplene i DeliveryPlanner-planen. Kjør deretter Beregn DeliveryPlanner eller Kjør DeliveryPlanner fra DeliveryPlanner-oppsett og kontroller resultatet i kjøringslinjene.';
+                }
+            }
+        }
+    }
+    actions
+    {
+        area(Processing)
+        {
+            action(CreateAllTestData)
+            {
+                Caption = 'Opprett alt testdata';
+                ApplicationArea = All;
+                Image = CreateForm;
+                ToolTip = 'Oppretter hovedlager, butikker, varer og ordre for alle testscenarioene.';
+
+                trigger OnAction()
+                begin
+                    TestData.CreateAll();
+                end;
+            }
+            action(ToggleInvalidSetup)
+            {
+                Caption = 'Slå av/på ugyldig oppsett';
+                ApplicationArea = All;
+                Image = ErrorLog;
+                ToolTip = 'Aktiverer eller deaktiverer en SKU med null makslager, for å teste at DeliveryPlanner blokkerer kjøringen med en tydelig feilmelding.';
+
+                trigger OnAction()
+                begin
+                    TestData.ToggleInvalidSetup();
+                end;
+            }
+            action(OpenSetup)
+            {
+                Caption = 'Åpne DeliveryPlanner-oppsett';
+                ApplicationArea = All;
+                Image = Setup;
+                ToolTip = 'Åpner DeliveryPlanner-oppsett for å beregne eller kjøre planleggingen.';
+                RunObject = page "DP Setup KBS";
+            }
+        }
+        area(Promoted)
+        {
+            actionref(CreateAllTestDataPromoted; CreateAllTestData) { }
+            actionref(OpenSetupPromoted; OpenSetup) { }
+        }
+    }
+
+    var
+        TestData: Codeunit "DP Test Data KBS";
+}

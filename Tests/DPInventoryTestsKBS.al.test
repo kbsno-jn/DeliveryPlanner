@@ -1,0 +1,242 @@
+namespace Knowit.DeliveryPlanner;
+
+using Microsoft.Inventory.Item;
+using Microsoft.Inventory.Journal;
+using Microsoft.Inventory.Ledger;
+using Microsoft.Inventory.Location;
+using Microsoft.Inventory.Tracking;
+using Microsoft.Inventory.Transfer;
+using Microsoft.Purchases.Document;
+using Microsoft.Sales.Document;
+
+codeunit 70002 "DP Inventory Tests KBS"
+{
+    Subtype = Test;
+    TestPermissions = Disabled;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure SalesHistoryUsesPostedNetQuantityAndFullDays()
+    var
+        SKU: Record "Stockkeeping Unit";
+        Setup: Record "DP Setup KBS";
+        RunRecord: Record "DP Run KBS";
+        RunLine: Record "DP Run Line KBS";
+    begin
+        CreateFixture(SKU, Setup, RunRecord);
+        AddLedger(SKU."Location Code", -56, Enum::"Item Ledger Entry Type"::Sale, RunRecord."Planning Date" - 56);
+        AddLedger(SKU."Location Code", 14, Enum::"Item Ledger Entry Type"::Sale, RunRecord."Planning Date" - 1);
+        AddLedger(SKU."Location Code", -100, Enum::"Item Ledger Entry Type"::Sale, RunRecord."Planning Date");
+        AddLedger(SKU."Location Code", -100, Enum::"Item Ledger Entry Type"::Sale, RunRecord."Planning Date" - 57);
+        Inventory.BuildRunLine(SKU, Setup, RunRecord, RunLine);
+        AssertEquals(0.75, RunLine."Daily Sales", 'Sales and returns in the closed history period.');
+    end;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure OutgoingOrdersDoNotCreatePhysicalSpace()
+    var
+        SKU: Record "Stockkeeping Unit";
+        Setup: Record "DP Setup KBS";
+        RunRecord: Record "DP Run KBS";
+        RunLine: Record "DP Run Line KBS";
+    begin
+        CreateFixture(SKU, Setup, RunRecord);
+        SKU."Safety Stock Quantity" := 100;
+        AddLedger(SKU."Location Code", 90, Enum::"Item Ledger Entry Type"::"Positive Adjmt.", RunRecord."Planning Date");
+        AddSalesOrder(SKU."Location Code", 30);
+        Inventory.BuildRunLine(SKU, Setup, RunRecord, RunLine);
+        AssertEquals(30, RunLine."Outgoing Quantity", 'Outstanding sales.');
+        AssertEquals(10, RunLine."Capacity Quantity", 'Only physical space can be used.');
+        AssertEquals(10, RunLine."Need Quantity", 'Need is capped by physical space.');
+    end;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure TransferTransitIsCountedOnce()
+    var
+        SKU: Record "Stockkeeping Unit";
+        Setup: Record "DP Setup KBS";
+        RunRecord: Record "DP Run KBS";
+        RunLine: Record "DP Run Line KBS";
+        TransferLine: Record "Transfer Line";
+    begin
+        CreateFixture(SKU, Setup, RunRecord);
+        AddLedger(Setup."Hub Location Code", 100, Enum::"Item Ledger Entry Type"::"Positive Adjmt.", RunRecord."Planning Date");
+        TransferLine.Init();
+        TransferLine."Document No." := 'DPTESTTO';
+        TransferLine."Line No." := 10000;
+        TransferLine."Item No." := SKU."Item No.";
+        TransferLine."Transfer-from Code" := Setup."Hub Location Code";
+        TransferLine."Transfer-to Code" := SKU."Location Code";
+        TransferLine."Quantity (Base)" := 20;
+        TransferLine."Qty. Shipped (Base)" := 12;
+        TransferLine."Qty. Received (Base)" := 5;
+        TransferLine."Outstanding Qty. (Base)" := 8;
+        TransferLine."Qty. in Transit (Base)" := 7;
+        TransferLine.Insert(false);
+        TransferLine."Line No." := 20000;
+        TransferLine."Derived From Line No." := 10000;
+        TransferLine."Quantity (Base)" := 12;
+        TransferLine."Outstanding Qty. (Base)" := 0;
+        TransferLine.Insert(false);
+        Inventory.BuildRunLine(SKU, Setup, RunRecord, RunLine);
+        AssertEquals(15, RunLine."Incoming Quantity", 'Unshipped plus transit, excluding duplicate derived lines.');
+        AssertEquals(92, Inventory.GetHubAvailable(SKU."Item No.", '', Setup."Hub Location Code"), 'Only unshipped quantity is committed at the hub.');
+    end;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure PhysicalSalesReservationsAreNotCountedTwice()
+    var
+        SKU: Record "Stockkeeping Unit";
+        Setup: Record "DP Setup KBS";
+        RunRecord: Record "DP Run KBS";
+    begin
+        CreateFixture(SKU, Setup, RunRecord);
+        AddLedger(Setup."Hub Location Code", 100, Enum::"Item Ledger Entry Type"::"Positive Adjmt.", RunRecord."Planning Date");
+        AddSalesOrder(Setup."Hub Location Code", 30);
+        AddReservation(Setup."Hub Location Code", 20, Database::"Item Ledger Entry", Database::"Sales Line", 1, 'DPTESTSO', 10000);
+        AddReservation(Setup."Hub Location Code", 5, Database::"Item Ledger Entry", Database::"Item Journal Line", 0, 'OTHER', 10000);
+        AddReservation(Setup."Hub Location Code", 40, Database::"Purchase Line", Database::"Item Journal Line", 0, 'FUTURE', 10000);
+        AssertEquals(65, Inventory.GetHubAvailable(SKU."Item No.", '', Setup."Hub Location Code"), 'Thirty sales plus five other physical reservations, no future supply reservation.');
+    end;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure PurchaseReceiptsUseOutstandingBaseQuantity()
+    var
+        SKU: Record "Stockkeeping Unit";
+        Setup: Record "DP Setup KBS";
+        RunRecord: Record "DP Run KBS";
+        RunLine: Record "DP Run Line KBS";
+        PurchaseLine: Record "Purchase Line";
+    begin
+        CreateFixture(SKU, Setup, RunRecord);
+        PurchaseLine.Init();
+        PurchaseLine."Document Type" := PurchaseLine."Document Type"::Order;
+        PurchaseLine."Document No." := 'DPTESTPO';
+        PurchaseLine."Line No." := 10000;
+        PurchaseLine.Type := PurchaseLine.Type::Item;
+        PurchaseLine."No." := SKU."Item No.";
+        PurchaseLine."Location Code" := SKU."Location Code";
+        PurchaseLine."Outstanding Qty. (Base)" := 6;
+        PurchaseLine."Expected Receipt Date" := RunRecord."Planning Date" + 365;
+        PurchaseLine.Insert(false);
+        PurchaseLine."Line No." := 20000;
+        PurchaseLine."Drop Shipment" := true;
+        PurchaseLine."Outstanding Qty. (Base)" := 50;
+        PurchaseLine.Insert(false);
+        Inventory.BuildRunLine(SKU, Setup, RunRecord, RunLine);
+        AssertEquals(6, RunLine."Incoming Quantity", 'Capacity includes future receipts but excludes drop shipment.');
+        AssertEquals(34, RunLine."Need Quantity", 'No history replenishes to safety stock, less incoming.');
+    end;
+
+    local procedure CreateFixture(var SKU: Record "Stockkeeping Unit"; var Setup: Record "DP Setup KBS"; var RunRecord: Record "DP Run KBS")
+    var
+        Item: Record Item;
+        ItemUOM: Record "Item Unit of Measure";
+        Location: Record Location;
+        Category: Record "DP Store Category KBS";
+    begin
+        Item.Init();
+        Item."No." := 'DPTESTITEM';
+        Item."Base Unit of Measure" := 'PCS';
+        Item.Insert(false);
+        ItemUOM.Init();
+        ItemUOM."Item No." := Item."No.";
+        ItemUOM.Code := 'PCS';
+        ItemUOM."Qty. per Unit of Measure" := 1;
+        ItemUOM."Qty. Rounding Precision" := 1;
+        ItemUOM.Insert(false);
+        Category.Init();
+        Category.Code := 'DPTEST';
+        Category."Coverage Days" := 7;
+        Category."Allocation Weight" := 1;
+        Category.Insert(false);
+        Location.Init();
+        Location.Code := 'DPTESTSHOP';
+        Location."DP Enabled KBS" := true;
+        Location."DP Category Code KBS" := Category.Code;
+        Location.Insert(false);
+        SKU.Init();
+        SKU."Item No." := Item."No.";
+        SKU."Location Code" := Location.Code;
+        SKU."Maximum Inventory" := 100;
+        SKU."Safety Stock Quantity" := 40;
+        SKU."DP Enabled KBS" := true;
+        SKU.Insert(false);
+        Setup."Hub Location Code" := 'DPTESTHUB';
+        Setup."Sales History Days" := 56;
+        RunRecord."Planning Date" := DMY2Date(8, 9, 2026);
+    end;
+
+    local procedure AddLedger(LocationCode: Code[10]; Quantity: Decimal; EntryType: Enum "Item Ledger Entry Type"; PostingDate: Date)
+    var
+        ItemLedgerEntry: Record "Item Ledger Entry";
+        EntryNo: Integer;
+    begin
+        if ItemLedgerEntry.FindLast() then
+            EntryNo := ItemLedgerEntry."Entry No.";
+        ItemLedgerEntry.Init();
+        ItemLedgerEntry."Entry No." := EntryNo + 1;
+        ItemLedgerEntry."Item No." := 'DPTESTITEM';
+        ItemLedgerEntry."Location Code" := LocationCode;
+        ItemLedgerEntry."Entry Type" := EntryType;
+        ItemLedgerEntry."Posting Date" := PostingDate;
+        ItemLedgerEntry.Quantity := Quantity;
+        ItemLedgerEntry."Remaining Quantity" := Quantity;
+        ItemLedgerEntry.Positive := Quantity > 0;
+        ItemLedgerEntry.Open := Quantity <> 0;
+        ItemLedgerEntry.Insert(false);
+    end;
+
+    local procedure AddSalesOrder(LocationCode: Code[10]; Quantity: Decimal)
+    var
+        SalesLine: Record "Sales Line";
+    begin
+        SalesLine.Init();
+        SalesLine."Document Type" := SalesLine."Document Type"::Order;
+        SalesLine."Document No." := 'DPTESTSO';
+        SalesLine."Line No." := 10000;
+        SalesLine.Type := SalesLine.Type::Item;
+        SalesLine."No." := 'DPTESTITEM';
+        SalesLine."Location Code" := LocationCode;
+        SalesLine."Outstanding Qty. (Base)" := Quantity;
+        SalesLine.Insert(false);
+    end;
+
+    local procedure AddReservation(LocationCode: Code[10]; Quantity: Decimal; SupplyType: Integer; DemandType: Integer; DemandSubtype: Integer; DemandID: Code[20]; DemandLineNo: Integer)
+    var
+        ReservationEntry: Record "Reservation Entry";
+        EntryNo: Integer;
+    begin
+        if ReservationEntry.FindLast() then
+            EntryNo := ReservationEntry."Entry No.";
+        ReservationEntry.Init();
+        ReservationEntry."Entry No." := EntryNo + 1;
+        ReservationEntry.Positive := true;
+        ReservationEntry."Item No." := 'DPTESTITEM';
+        ReservationEntry."Location Code" := LocationCode;
+        ReservationEntry."Reservation Status" := ReservationEntry."Reservation Status"::Reservation;
+        ReservationEntry."Source Type" := SupplyType;
+        ReservationEntry."Quantity (Base)" := Quantity;
+        ReservationEntry.Insert(false);
+        ReservationEntry.Positive := false;
+        ReservationEntry."Source Type" := DemandType;
+        ReservationEntry."Source Subtype" := DemandSubtype;
+        ReservationEntry."Source ID" := DemandID;
+        ReservationEntry."Source Ref. No." := DemandLineNo;
+        ReservationEntry."Quantity (Base)" := -Quantity;
+        ReservationEntry.Insert(false);
+    end;
+
+    local procedure AssertEquals(Expected: Decimal; Actual: Decimal; Context: Text)
+    begin
+        if Expected <> Actual then
+            Error('%1 Expected %2; actual %3.', Context, Expected, Actual);
+    end;
+
+    var
+        Inventory: Codeunit "DP Inventory KBS";
+}
