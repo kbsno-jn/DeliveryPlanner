@@ -1,0 +1,105 @@
+namespace Knowit.DeliveryPlanner;
+
+using Microsoft.Inventory.Location;
+
+codeunit 70005 "DP Location Settings Tests KBS"
+{
+    Subtype = Test;
+    TestPermissions = Disabled;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure SetsSelectedLocationsOnly()
+    var
+        Location: Record Location;
+    begin
+        CreateFixture();
+        Location.SetFilter(Code, 'DPLOC1|DPLOC2');
+        AssertEquals(2, Management.SetStoreSettings(Location, true, 'DPLOCCAT'), 'Updated locations.');
+
+        Location.Reset();
+        Location.Get('DPLOC1');
+        AssertTrue(Location."DP Enabled KBS" and (Location."DP Category Code KBS" = 'DPLOCCAT'), 'First selected location.');
+        Location.Get('DPLOC2');
+        AssertTrue(Location."DP Enabled KBS" and (Location."DP Category Code KBS" = 'DPLOCCAT'), 'Second selected location.');
+        Location.Get('DPLOC3');
+        AssertTrue(not Location."DP Enabled KBS" and (Location."DP Category Code KBS" = ''), 'Unselected location is unchanged.');
+    end;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure DisablingAllowsBlankCategory()
+    var
+        Location: Record Location;
+    begin
+        CreateFixture();
+        Location.SetRange(Code, 'DPLOC1');
+        Management.SetStoreSettings(Location, true, 'DPLOCCAT');
+        Management.SetStoreSettings(Location, false, '');
+        Location.Get('DPLOC1');
+        AssertTrue(not Location."DP Enabled KBS" and (Location."DP Category Code KBS" = ''), 'Location is disabled and category cleared.');
+    end;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure EnablingRequiresCategory()
+    var
+        Location: Record Location;
+    begin
+        CreateFixture();
+        Location.SetRange(Code, 'DPLOC1');
+        asserterror Management.SetStoreSettings(Location, true, '');
+        AssertTrue(StrPos(GetLastErrorText(), 'butikkategori') > 0, 'Expected a missing category error.');
+    end;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure InTransitSelectionIsRejected()
+    var
+        Location: Record Location;
+    begin
+        CreateFixture();
+        Location.SetFilter(Code, 'DPLOC1|DPLOCTR');
+        asserterror Management.SetStoreSettings(Location, true, 'DPLOCCAT');
+    end;
+
+    local procedure CreateFixture()
+    var
+        Category: Record "DP Store Category KBS";
+    begin
+        Category.Init();
+        Category.Code := 'DPLOCCAT';
+        Category."Coverage Days" := 7;
+        Category."Allocation Weight" := 1;
+        Category.Insert(false);
+        CreateLocation('DPLOC1', false);
+        CreateLocation('DPLOC2', false);
+        CreateLocation('DPLOC3', false);
+        CreateLocation('DPLOCTR', true);
+    end;
+
+    local procedure CreateLocation(LocationCode: Code[10]; InTransit: Boolean)
+    var
+        Location: Record Location;
+    begin
+        Location.Init();
+        Location.Code := LocationCode;
+        Location."Use As In-Transit" := InTransit;
+        Location.Insert(false);
+    end;
+
+    local procedure AssertEquals(Expected: Decimal; Actual: Decimal; Context: Text)
+    begin
+        if Expected <> Actual then
+            Error('%1 Expected %2, actual %3.', Context, Expected, Actual);
+    end;
+
+    local procedure AssertTrue(Actual: Boolean; Context: Text)
+    begin
+        if not Actual then
+            Error(Context);
+    end;
+
+    var
+        Management: Codeunit "DP Management KBS";
+}

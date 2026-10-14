@@ -24,6 +24,7 @@ permissionset 62107 "DP ADMIN KBS"
         page "DP Runs KBS" = X,
         page "DP Run Lines KBS" = X,
         page "DP Proposal Log KBS" = X,
+        page "DP Location Batch Update KBS" = X,
         codeunit "DP Management KBS" = X,
         codeunit "DP Worker KBS" = X,
         codeunit "DP Job Queue KBS" = X,

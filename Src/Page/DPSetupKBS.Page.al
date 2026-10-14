@@ -43,7 +43,7 @@ page 62100 "DP Setup KBS"
                 Caption = 'Opprett standardoppsett';
                 ApplicationArea = All;
                 Image = Setup;
-                ToolTip = 'Oppretter foreslåtte butikkategorier og en egen rekvisisjonskladd for DeliveryPlanner.';
+                ToolTip = 'Oppretter foreslåtte butikkategorier og en egen rekvisisjonskladd for DeliveryPlanner. Overfører makslager fra varekortet til lagerføringsenhetene i aktive butikker etter butikkens kategori.';
 
                 trigger OnAction()
                 begin

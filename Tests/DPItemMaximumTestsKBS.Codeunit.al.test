@@ -1,0 +1,181 @@
+namespace Knowit.DeliveryPlanner;
+
+using Microsoft.Inventory.Item;
+using Microsoft.Inventory.Location;
+using Microsoft.Inventory.Transfer;
+
+codeunit 70004 "DP Item Maximum Tests KBS"
+{
+    Subtype = Test;
+    TestPermissions = Disabled;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure CreatesSKUsFromStoreCategory()
+    var
+        Setup: Record "DP Setup KBS";
+        SKU: Record "Stockkeeping Unit";
+        CreatedCount: Integer;
+        UpdatedCount: Integer;
+    begin
+        CreateFixture(Setup);
+        CreateItem('DPMAXITEM', 10, 0, 30);
+        Management.ApplyItemMaximums(Setup, CreatedCount, UpdatedCount);
+
+        SKU.Get('DPMAXS', 'DPMAXITEM', '');
+        AssertEquals(10, SKU."Maximum Inventory", 'Small store uses the small maximum.');
+        AssertTrue(SKU."Replenishment System" = SKU."Replenishment System"::Transfer, 'New SKUs are replenished by transfer.');
+        AssertTrue(SKU."Transfer-from Code" = 'DPMAXHUB', 'New SKUs are supplied from the hub.');
+        AssertTrue(not SKU."DP Enabled KBS", 'New SKUs are activated manually.');
+        SKU.Get('DPMAXL', 'DPMAXITEM', '');
+        AssertEquals(30, SKU."Maximum Inventory", 'Large store uses the large maximum.');
+        AssertTrue(not SKU.Get('DPMAXM', 'DPMAXITEM', ''), 'A zero medium maximum creates no SKU.');
+        AssertTrue(not SKU.Get('DPMAXOFF', 'DPMAXITEM', ''), 'Disabled stores are skipped.');
+        AssertTrue(not SKU.Get('DPMAXOTH', 'DPMAXITEM', ''), 'Other categories are skipped.');
+        AssertEquals(2, CreatedCount, 'Created SKUs.');
+        AssertEquals(0, UpdatedCount, 'Updated SKUs.');
+    end;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure OverwritesExistingMaximumOnly()
+    var
+        Setup: Record "DP Setup KBS";
+        SKU: Record "Stockkeeping Unit";
+        CreatedCount: Integer;
+        UpdatedCount: Integer;
+    begin
+        CreateFixture(Setup);
+        CreateItem('DPMAXITEM', 10, 0, 0);
+        CreateSKU('DPMAXS', 'DPMAXITEM', 5);
+        CreateSKU('DPMAXM', 'DPMAXITEM', 99);
+        Management.ApplyItemMaximums(Setup, CreatedCount, UpdatedCount);
+
+        SKU.Get('DPMAXS', 'DPMAXITEM', '');
+        AssertEquals(10, SKU."Maximum Inventory", 'The item card maximum overwrites the SKU.');
+        AssertTrue(SKU."Replenishment System" = SKU."Replenishment System"::Purchase, 'Existing replenishment settings are kept.');
+        SKU.Get('DPMAXM', 'DPMAXITEM', '');
+        AssertEquals(99, SKU."Maximum Inventory", 'A zero item card maximum leaves the SKU unchanged.');
+        AssertEquals(0, CreatedCount, 'Created SKUs.');
+        AssertEquals(1, UpdatedCount, 'Updated SKUs.');
+    end;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure AppliesMaximumToEachVariant()
+    var
+        Setup: Record "DP Setup KBS";
+        SKU: Record "Stockkeeping Unit";
+        ItemVariant: Record "Item Variant";
+        CreatedCount: Integer;
+        UpdatedCount: Integer;
+    begin
+        CreateFixture(Setup);
+        CreateItem('DPMAXITEM', 12, 0, 0);
+        ItemVariant.Init();
+        ItemVariant."Item No." := 'DPMAXITEM';
+        ItemVariant.Code := 'RED';
+        ItemVariant.Insert(false);
+        ItemVariant.Code := 'BLUE';
+        ItemVariant.Insert(false);
+        Management.ApplyItemMaximums(Setup, CreatedCount, UpdatedCount);
+
+        SKU.Get('DPMAXS', 'DPMAXITEM', 'RED');
+        AssertEquals(12, SKU."Maximum Inventory", 'First variant.');
+        SKU.Get('DPMAXS', 'DPMAXITEM', 'BLUE');
+        AssertEquals(12, SKU."Maximum Inventory", 'Second variant.');
+        AssertTrue(not SKU.Get('DPMAXS', 'DPMAXITEM', ''), 'Items with variants get no blank-variant SKU.');
+    end;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure NewSKURequiresHub()
+    var
+        Setup: Record "DP Setup KBS";
+        CreatedCount: Integer;
+        UpdatedCount: Integer;
+    begin
+        CreateFixture(Setup);
+        Setup."Hub Location Code" := '';
+        CreateItem('DPMAXITEM', 10, 0, 0);
+        asserterror Management.ApplyItemMaximums(Setup, CreatedCount, UpdatedCount);
+        if StrPos(GetLastErrorText(), 'hovedlager') = 0 then
+            Error('Expected a missing hub error. Actual: %1', GetLastErrorText());
+    end;
+
+    local procedure CreateFixture(var Setup: Record "DP Setup KBS")
+    begin
+        CreateLocation('DPMAXHUB', false, '', false);
+        CreateLocation('DPMAXTR', false, '', true);
+        CreateStore('DPMAXS', true, 'SMALL');
+        CreateStore('DPMAXM', true, 'MEDIUM');
+        CreateStore('DPMAXL', true, 'LARGE');
+        CreateStore('DPMAXOFF', false, 'SMALL');
+        CreateStore('DPMAXOTH', true, 'DPMAXOTH');
+        Setup."Hub Location Code" := 'DPMAXHUB';
+    end;
+
+    local procedure CreateStore(LocationCode: Code[10]; Enabled: Boolean; CategoryCode: Code[10])
+    var
+        TransferRoute: Record "Transfer Route";
+    begin
+        CreateLocation(LocationCode, Enabled, CategoryCode, false);
+        TransferRoute.Init();
+        TransferRoute."Transfer-from Code" := 'DPMAXHUB';
+        TransferRoute."Transfer-to Code" := LocationCode;
+        TransferRoute."In-Transit Code" := 'DPMAXTR';
+        TransferRoute.Insert(false);
+    end;
+
+    local procedure CreateLocation(LocationCode: Code[10]; Enabled: Boolean; CategoryCode: Code[10]; InTransit: Boolean)
+    var
+        Location: Record Location;
+    begin
+        Location.Init();
+        Location.Code := LocationCode;
+        Location."Use As In-Transit" := InTransit;
+        Location."DP Enabled KBS" := Enabled;
+        Location."DP Category Code KBS" := CategoryCode;
+        Location.Insert(false);
+    end;
+
+    local procedure CreateItem(ItemNo: Code[20]; SmallMaximum: Decimal; MediumMaximum: Decimal; LargeMaximum: Decimal)
+    var
+        Item: Record Item;
+    begin
+        Item.Init();
+        Item."No." := ItemNo;
+        Item.Type := Item.Type::Inventory;
+        Item."DP Max. Inv. Small KBS" := SmallMaximum;
+        Item."DP Max. Inv. Medium KBS" := MediumMaximum;
+        Item."DP Max. Inv. Large KBS" := LargeMaximum;
+        Item.Insert(false);
+    end;
+
+    local procedure CreateSKU(LocationCode: Code[10]; ItemNo: Code[20]; MaximumInventory: Decimal)
+    var
+        SKU: Record "Stockkeeping Unit";
+    begin
+        SKU.Init();
+        SKU."Location Code" := LocationCode;
+        SKU."Item No." := ItemNo;
+        SKU."Replenishment System" := SKU."Replenishment System"::Purchase;
+        SKU."Maximum Inventory" := MaximumInventory;
+        SKU.Insert(false);
+    end;
+
+    local procedure AssertEquals(Expected: Decimal; Actual: Decimal; Context: Text)
+    begin
+        if Expected <> Actual then
+            Error('%1 Expected %2, actual %3.', Context, Expected, Actual);
+    end;
+
+    local procedure AssertTrue(Actual: Boolean; Context: Text)
+    begin
+        if not Actual then
+            Error(Context);
+    end;
+
+    var
+        Management: Codeunit "DP Management KBS";
+}
