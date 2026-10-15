@@ -3,8 +3,9 @@ namespace Knowit.DeliveryPlanner;
 using Microsoft.Inventory.Item;
 using Microsoft.Inventory.Location;
 
-table 62103 "DP Run Line KBS"
+table 78903 "DP Run Line KBS"
 {
+    AllowInCustomizations = AsReadOnly;
     Caption = 'DeliveryPlanner-beregningslinje';
     DataClassification = CustomerContent;
     DataCaptionFields = "Item No.", "Variant Code", "Location Code";
@@ -97,7 +98,7 @@ table 62103 "DP Run Line KBS"
         field(15; "Allocated Quantity"; Decimal)
         {
             Caption = 'Tildelt antall';
-            ToolTip = 'Angir antallet etter kapasitetskontroll, vektet fordeling og avrunding.';
+            ToolTip = 'Angir antallet etter kapasitetskontroll, fordeling etter dager med dekning og avrunding.';
             DecimalPlaces = 0 : 5;
         }
         field(16; "Quantity Precision"; Decimal)
@@ -115,18 +116,81 @@ table 62103 "DP Run Line KBS"
         field(18; "Allocation Weight"; Decimal)
         {
             Caption = 'Fordelingsvekt';
-            ToolTip = 'Angir kategoriens fordelingsvekt ved beregningen.';
+            ToolTip = 'Angir kategoriens vekt. Vekten avgjør bare når butikker står likt etter dager med dekning.';
             DecimalPlaces = 0 : 5;
         }
         field(19; "Coverage Days"; Integer)
         {
             Caption = 'Dekningsdager';
-            ToolTip = 'Angir kategoriens dekningsperiode ved beregningen.';
+            ToolTip = 'Angir hvor mange dager lagermålet dekker: fra planleggingsdatoen til neste mulige levering, eller kategoriens dekningsdager når butikken ikke har leveringsdager.';
         }
         field(20; "Reason"; Text[250])
         {
             Caption = 'Begrunnelse';
             ToolTip = 'Angir hvorfor forslaget er begrenset eller varen er utelatt.';
+        }
+        field(21; "Sold Quantity"; Decimal)
+        {
+            Caption = 'Solgt antall';
+            ToolTip = 'Angir netto salg i analyseperioden i basisenheter.';
+            DecimalPlaces = 0 : 5;
+        }
+        field(22; "Days In Stock"; Integer)
+        {
+            Caption = 'Dager på lager';
+            ToolTip = 'Angir hvor mange dager i analyseperioden varen hadde beholdning eller ble solgt i butikken. Salget deles på disse dagene, men aldri på færre enn minste antall dager i oppsettet.';
+        }
+        field(23; "Ships Now"; Boolean)
+        {
+            Caption = 'Leveres nå';
+            ToolTip = 'Angir om ordre fra denne kjøringen kommer frem på en leveringsdag for butikken.';
+        }
+        field(24; "Receipt Date"; Date)
+        {
+            Caption = 'Mottaksdato';
+            ToolTip = 'Angir når en ordre sendt på planleggingsdatoen kommer frem, beregnet fra overføringsruten.';
+        }
+        field(25; "Next Receipt Date"; Date)
+        {
+            Caption = 'Neste mottaksdato';
+            ToolTip = 'Angir neste dato butikken kan få varer etter mottaksdatoen. Lagermålet skal dekke salget frem til denne datoen.';
+        }
+        field(26; "Maximum Inventory"; Decimal)
+        {
+            Caption = 'Makslager';
+            ToolTip = 'Angir makslageret på lagerføringsenheten ved beregningen.';
+            DecimalPlaces = 0 : 5;
+        }
+        field(27; "Days of Cover"; Decimal)
+        {
+            Caption = 'Dager med dekning';
+            ToolTip = 'Angir hvor mange dager beholdning og varer på vei rekker med dagens salgstakt, før tildelingen. Tomt når varen ikke har salg.';
+            DecimalPlaces = 0 : 1;
+            BlankZero = true;
+        }
+        field(28; "Unmet Quantity"; Decimal)
+        {
+            Caption = 'Udekket antall';
+            ToolTip = 'Angir behovet som ikke ble dekket fordi hovedlageret hadde for lite.';
+            DecimalPlaces = 0 : 5;
+        }
+        field(29; Exception; Enum "DP Exception KBS")
+        {
+            Caption = 'Avvik';
+            ToolTip = 'Angir det viktigste avviket for linjen: mangler oppsett, tom i butikk, udekket behov eller over makslager.';
+        }
+        field(31; "Sold Last Day"; Boolean)
+        {
+            Caption = 'Solgt i går';
+            ToolTip = 'Angir om varen hadde bokført salg i butikken dagen før planleggingsdatoen.';
+        }
+        field(30; "Item Description"; Text[100])
+        {
+            Caption = 'Varebeskrivelse';
+            ToolTip = 'Angir varens beskrivelse.';
+            FieldClass = FlowField;
+            CalcFormula = lookup(Item.Description where("No." = field("Item No.")));
+            Editable = false;
         }
     }
     keys
@@ -134,5 +198,29 @@ table 62103 "DP Run Line KBS"
         key(PK; "Run ID", "Entry No.") { Clustered = true; }
         key(ItemVariantLocation; "Item No.", "Variant Code", "Location Code") { }
         key(ByItem; "Run ID", "Item No.", "Variant Code", "Location Code") { }
+        key(ByException; "Run ID", Exception, "Location Code", "Item No.") { }
     }
+
+    procedure UpdateException()
+    var
+        OutOfStock: Boolean;
+        Unmet: Boolean;
+    begin
+        if Exception = Exception::"Missing Setup" then
+            exit;
+        OutOfStock := Inventory <= 0;
+        Unmet := "Unmet Quantity" > 0;
+        case true of
+            OutOfStock and Unmet:
+                Exception := Exception::"Out of Stock Unmet Need";
+            Unmet:
+                Exception := Exception::"Unmet Need";
+            OutOfStock:
+                Exception := Exception::"Out of Stock";
+            ("Maximum Inventory" > 0) and (Inventory + "Incoming Quantity" > "Maximum Inventory"):
+                Exception := Exception::"Over Maximum";
+            else
+                Exception := Exception::None;
+        end;
+    end;
 }

@@ -3,7 +3,7 @@ namespace Knowit.DeliveryPlanner;
 using Microsoft.Inventory.Requisition;
 using Microsoft.Inventory.Transfer;
 
-codeunit 62104 "DP Worksheet Guard KBS"
+codeunit 78904 "DP Worksheet Guard KBS"
 {
     Permissions = tabledata "DP Setup KBS" = r;
 

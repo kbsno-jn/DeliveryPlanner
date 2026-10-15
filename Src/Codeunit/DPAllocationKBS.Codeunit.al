@@ -1,16 +1,19 @@
 namespace Knowit.DeliveryPlanner;
 
-codeunit 62106 "DP Allocation KBS"
+codeunit 78906 "DP Allocation KBS"
 {
+    /// <summary>
+    /// Distributes the available quantity so that the stores' days of cover are levelled, starting
+    /// with the store that runs out first. Days of cover = (Position + allocation) / Daily Rate. No
+    /// store receives more than its need, and the result is rounded down to each store's increment.
+    /// </summary>
     procedure Allocate(var TempBuffer: Record "DP Allocation Buffer KBS" temporary; Available: Decimal)
     var
         TempSourceBuffer: Record "DP Allocation Buffer KBS" temporary;
         TempWorkBuffer: Record "DP Allocation Buffer KBS" temporary;
         Remaining: Decimal;
         TotalNeed: Decimal;
-        TotalWeight: Decimal;
-        Share: Decimal;
-        CappedAny: Boolean;
+        Level: Decimal;
     begin
         TempSourceBuffer.Copy(TempBuffer, true);
         TempSourceBuffer.Reset();
@@ -23,6 +26,8 @@ codeunit 62106 "DP Allocation KBS"
             if TempWorkBuffer.Weight <= 0 then
                 Error(PositiveWeightErr, TempWorkBuffer."Location Code");
             TempWorkBuffer.Need := Round(Maximum(0, TempWorkBuffer.Need), TempWorkBuffer.Increment, '<');
+            if (TempWorkBuffer.Need > 0) and (TempWorkBuffer."Daily Rate" <= 0) then
+                Error(PositiveRateErr, TempWorkBuffer."Location Code");
             TempWorkBuffer.Allocation := 0;
             TempWorkBuffer."Ideal Allocation" := 0;
             TempWorkBuffer.Insert();
@@ -30,46 +35,27 @@ codeunit 62106 "DP Allocation KBS"
             TempSourceBuffer."Ideal Allocation" := 0;
             TempSourceBuffer.Modify();
             TotalNeed += TempWorkBuffer.Need;
-            if TempWorkBuffer.Need > 0 then
-                TotalWeight += TempWorkBuffer.Weight;
         until TempSourceBuffer.Next() = 0;
 
         Remaining := Minimum(Maximum(0, Available), TotalNeed);
         if Remaining = 0 then
             exit;
 
-        // Each saturation pass removes at least one store. The work depends on
-        // the number of stores, never on the number of units being allocated.
-        repeat
-            CappedAny := false;
-            if TotalWeight > 0 then begin
-                Share := Remaining / TotalWeight;
-                if TempWorkBuffer.FindSet() then
-                    repeat
-                        if (TempWorkBuffer.Need > 0) and (TempWorkBuffer."Ideal Allocation" = 0) then
-                            if TempWorkBuffer.Need <= Share * TempWorkBuffer.Weight then begin
-                                TempWorkBuffer."Ideal Allocation" := TempWorkBuffer.Need;
-                                TempWorkBuffer.Modify();
-                                Remaining -= TempWorkBuffer.Need;
-                                TotalWeight -= TempWorkBuffer.Weight;
-                                CappedAny := true;
-                            end;
-                    until TempWorkBuffer.Next() = 0;
-            end;
-        until (not CappedAny) or (TotalWeight = 0);
+        if Remaining = TotalNeed then
+            Level := 0
+        else
+            Level := FindCoverLevel(TempWorkBuffer, Remaining);
+        if TempWorkBuffer.FindSet() then
+            repeat
+                if TempWorkBuffer.Need > 0 then begin
+                    if Remaining = TotalNeed then
+                        TempWorkBuffer."Ideal Allocation" := TempWorkBuffer.Need
+                    else
+                        TempWorkBuffer."Ideal Allocation" := AllocationAtLevel(TempWorkBuffer, Level);
+                    TempWorkBuffer.Modify();
+                end;
+            until TempWorkBuffer.Next() = 0;
 
-        if TotalWeight > 0 then begin
-            Share := Remaining / TotalWeight;
-            if TempWorkBuffer.FindSet() then
-                repeat
-                    if (TempWorkBuffer.Need > 0) and (TempWorkBuffer."Ideal Allocation" = 0) then begin
-                        TempWorkBuffer."Ideal Allocation" := Minimum(TempWorkBuffer.Need, Share * TempWorkBuffer.Weight);
-                        TempWorkBuffer.Modify();
-                    end;
-                until TempWorkBuffer.Next() = 0;
-        end;
-
-        Remaining := Minimum(Maximum(0, Available), TotalNeed);
         if TempWorkBuffer.FindSet() then
             repeat
                 TempWorkBuffer.Allocation := Round(TempWorkBuffer."Ideal Allocation", TempWorkBuffer.Increment, '<');
@@ -84,6 +70,87 @@ codeunit 62106 "DP Allocation KBS"
                 TempSourceBuffer."Ideal Allocation" := TempWorkBuffer."Ideal Allocation";
                 TempSourceBuffer.Modify();
             until TempWorkBuffer.Next() = 0;
+    end;
+
+    /// <summary>
+    /// Finds the highest common days-of-cover level whose total allocation does not exceed Quantity.
+    /// The total is monotone in the level, so bisection converges regardless of store count.
+    /// </summary>
+    local procedure FindCoverLevel(var TempBuffer: Record "DP Allocation Buffer KBS" temporary; Quantity: Decimal): Decimal
+    var
+        Low: Decimal;
+        High: Decimal;
+        Middle: Decimal;
+        Initialized: Boolean;
+        Iteration: Integer;
+    begin
+        if TempBuffer.FindSet() then
+            repeat
+                if TempBuffer.Need > 0 then
+                    if not Initialized then begin
+                        Low := TempBuffer.Position / TempBuffer."Daily Rate";
+                        High := (TempBuffer.Position + TempBuffer.Need) / TempBuffer."Daily Rate";
+                        Initialized := true;
+                    end else begin
+                        Low := Minimum(Low, TempBuffer.Position / TempBuffer."Daily Rate");
+                        High := Maximum(High, (TempBuffer.Position + TempBuffer.Need) / TempBuffer."Daily Rate");
+                    end;
+            until TempBuffer.Next() = 0;
+
+        for Iteration := 1 to 200 do begin
+            Middle := (Low + High) / 2;
+            if (Middle = Low) or (Middle = High) then
+                break;
+            if TotalAtLevel(TempBuffer, Middle) <= Quantity then
+                Low := Middle
+            else
+                High := Middle;
+        end;
+        exit(SolveLevelInSegment(TempBuffer, Quantity, Low, High));
+    end;
+
+    /// <summary>
+    /// Between Low and High the total is linear, so the exact level can be solved directly. This keeps
+    /// equal remainders equal, letting the weight decide ties instead of bisection noise.
+    /// </summary>
+    local procedure SolveLevelInSegment(var TempBuffer: Record "DP Allocation Buffer KBS" temporary; Quantity: Decimal; Low: Decimal; High: Decimal): Decimal
+    var
+        Fixed: Decimal;
+        ActivePosition: Decimal;
+        ActiveRate: Decimal;
+        Level: Decimal;
+    begin
+        if TempBuffer.FindSet() then
+            repeat
+                if TempBuffer.Need > 0 then
+                    if (TempBuffer.Position + TempBuffer.Need) / TempBuffer."Daily Rate" <= Low then
+                        Fixed += TempBuffer.Need
+                    else
+                        if TempBuffer.Position / TempBuffer."Daily Rate" < High then begin
+                            ActivePosition += TempBuffer.Position;
+                            ActiveRate += TempBuffer."Daily Rate";
+                        end;
+            until TempBuffer.Next() = 0;
+        if ActiveRate <= 0 then
+            exit(Low);
+        Level := (Quantity - Fixed + ActivePosition) / ActiveRate;
+        if (Level < Low) or (TotalAtLevel(TempBuffer, Level) > Quantity) then
+            exit(Low);
+        exit(Level);
+    end;
+
+    local procedure TotalAtLevel(var TempBuffer: Record "DP Allocation Buffer KBS" temporary; Level: Decimal) Total: Decimal
+    begin
+        if TempBuffer.FindSet() then
+            repeat
+                if TempBuffer.Need > 0 then
+                    Total += AllocationAtLevel(TempBuffer, Level);
+            until TempBuffer.Next() = 0;
+    end;
+
+    local procedure AllocationAtLevel(TempBuffer: Record "DP Allocation Buffer KBS" temporary; Level: Decimal): Decimal
+    begin
+        exit(Minimum(TempBuffer.Need, Maximum(0, Level * TempBuffer."Daily Rate" - TempBuffer.Position)));
     end;
 
     local procedure DistributeRemainder(var TempBuffer: Record "DP Allocation Buffer KBS" temporary; Remaining: Decimal)
@@ -167,4 +234,5 @@ codeunit 62106 "DP Allocation KBS"
     var
         PositiveIncrementErr: Label 'Antallstrinnet må være større enn null for lokasjon %1.', Comment = '%1 = Location code';
         PositiveWeightErr: Label 'Fordelingsvekten må være større enn null for lokasjon %1.', Comment = '%1 = Location code';
+        PositiveRateErr: Label 'Daglig forbruk må være større enn null for lokasjon %1 når butikken har behov.', Comment = '%1 = Location code';
 }

@@ -16,7 +16,7 @@ codeunit 70002 "DP Inventory Tests KBS"
 
     [Test]
     [TransactionModel(TransactionModel::AutoRollback)]
-    procedure SalesHistoryUsesPostedNetQuantityAndFullDays()
+    procedure SalesHistoryUsesNetQuantityInClosedPeriod()
     var
         SKU: Record "Stockkeeping Unit";
         Setup: Record "DP Setup KBS";
@@ -28,8 +28,88 @@ codeunit 70002 "DP Inventory Tests KBS"
         AddLedger(SKU."Location Code", 14, Enum::"Item Ledger Entry Type"::Sale, RunRecord."Planning Date" - 1);
         AddLedger(SKU."Location Code", -100, Enum::"Item Ledger Entry Type"::Sale, RunRecord."Planning Date");
         AddLedger(SKU."Location Code", -100, Enum::"Item Ledger Entry Type"::Sale, RunRecord."Planning Date" - 57);
-        Inventory.BuildRunLine(SKU, Setup, RunRecord, RunLine);
-        AssertEquals(0.75, RunLine."Daily Sales", 'Sales and returns in the closed history period.');
+        Inventory.BuildRunLine(SKU, Setup, RunRecord, 7, RunLine);
+        AssertEquals(42, RunLine."Sold Quantity", 'Sales and returns in the closed history period.');
+        AssertEquals(2, RunLine."Days In Stock", 'Only days with sales count when the store had no stock.');
+        AssertEquals(3, RunLine."Daily Sales", 'Sales are divided by at least the minimum days in stock.');
+    end;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure StockoutDaysAreExcludedFromSalesRate()
+    var
+        SKU: Record "Stockkeeping Unit";
+        Setup: Record "DP Setup KBS";
+        RunRecord: Record "DP Run KBS";
+        RunLine: Record "DP Run Line KBS";
+    begin
+        CreateFixture(SKU, Setup, RunRecord);
+        AddLedger(SKU."Location Code", 10, Enum::"Item Ledger Entry Type"::"Positive Adjmt.", RunRecord."Planning Date" - 57);
+        AddLedger(SKU."Location Code", -10, Enum::"Item Ledger Entry Type"::Sale, RunRecord."Planning Date" - 50);
+        AddLedger(SKU."Location Code", 20, Enum::"Item Ledger Entry Type"::"Positive Adjmt.", RunRecord."Planning Date" - 10);
+        AddLedger(SKU."Location Code", -8, Enum::"Item Ledger Entry Type"::Sale, RunRecord."Planning Date" - 5);
+        Inventory.BuildRunLine(SKU, Setup, RunRecord, 7, RunLine);
+        // In stock from day -56 to -50 (7 days) and from day -10 to -1 (10 days).
+        AssertEquals(17, RunLine."Days In Stock", 'Days without stock are excluded.');
+        AssertEquals(18, RunLine."Sold Quantity", 'Net sales.');
+        AssertEquals(18 / 17, RunLine."Daily Sales", 'Sales per day in stock.');
+    end;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure SaleOnLastClosedDayIsFlagged()
+    var
+        SKU: Record "Stockkeeping Unit";
+        Setup: Record "DP Setup KBS";
+        RunRecord: Record "DP Run KBS";
+        RunLine: Record "DP Run Line KBS";
+    begin
+        CreateFixture(SKU, Setup, RunRecord);
+        AddLedger(SKU."Location Code", 10, Enum::"Item Ledger Entry Type"::"Positive Adjmt.", RunRecord."Planning Date" - 5);
+        AddLedger(SKU."Location Code", -2, Enum::"Item Ledger Entry Type"::Sale, RunRecord."Planning Date" - 2);
+        Inventory.BuildRunLine(SKU, Setup, RunRecord, 7, RunLine);
+        if RunLine."Sold Last Day" then
+            Error('No sale yesterday must not be flagged.');
+        AddLedger(SKU."Location Code", -1, Enum::"Item Ledger Entry Type"::Sale, RunRecord."Planning Date" - 1);
+        Inventory.BuildRunLine(SKU, Setup, RunRecord, 7, RunLine);
+        if not RunLine."Sold Last Day" then
+            Error('A sale yesterday must be flagged.');
+    end;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure MinimumDaysInStockLimitsSalesRate()
+    var
+        SKU: Record "Stockkeeping Unit";
+        Setup: Record "DP Setup KBS";
+        RunRecord: Record "DP Run KBS";
+        RunLine: Record "DP Run Line KBS";
+    begin
+        CreateFixture(SKU, Setup, RunRecord);
+        AddLedger(SKU."Location Code", 10, Enum::"Item Ledger Entry Type"::"Positive Adjmt.", RunRecord."Planning Date" - 3);
+        AddLedger(SKU."Location Code", -6, Enum::"Item Ledger Entry Type"::Sale, RunRecord."Planning Date" - 2);
+        Inventory.BuildRunLine(SKU, Setup, RunRecord, 7, RunLine);
+        AssertEquals(3, RunLine."Days In Stock", 'Three days with stock.');
+        AssertEquals(6 / 14, RunLine."Daily Sales", 'Three days in stock are divided by the minimum of 14.');
+    end;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure TargetCoversScheduleCoverageDays()
+    var
+        SKU: Record "Stockkeeping Unit";
+        Setup: Record "DP Setup KBS";
+        RunRecord: Record "DP Run KBS";
+        RunLine: Record "DP Run Line KBS";
+    begin
+        CreateFixture(SKU, Setup, RunRecord);
+        SKU."Safety Stock Quantity" := 0;
+        AddLedger(SKU."Location Code", 100, Enum::"Item Ledger Entry Type"::"Positive Adjmt.", RunRecord."Planning Date" - 57);
+        AddLedger(SKU."Location Code", -56, Enum::"Item Ledger Entry Type"::Sale, RunRecord."Planning Date" - 20);
+        Inventory.BuildRunLine(SKU, Setup, RunRecord, 5, RunLine);
+        AssertEquals(5, RunLine."Coverage Days", 'Coverage comes from the delivery schedule.');
+        AssertEquals(5, RunLine."Target Quantity", 'One per day for five days.');
+        AssertEquals(44, RunLine."Days of Cover", 'Forty-four units at one per day.');
     end;
 
     [Test]
@@ -45,7 +125,7 @@ codeunit 70002 "DP Inventory Tests KBS"
         SKU."Safety Stock Quantity" := 100;
         AddLedger(SKU."Location Code", 90, Enum::"Item Ledger Entry Type"::"Positive Adjmt.", RunRecord."Planning Date");
         AddSalesOrder(SKU."Location Code", 30);
-        Inventory.BuildRunLine(SKU, Setup, RunRecord, RunLine);
+        Inventory.BuildRunLine(SKU, Setup, RunRecord, 7, RunLine);
         AssertEquals(30, RunLine."Outgoing Quantity", 'Outstanding sales.');
         AssertEquals(10, RunLine."Capacity Quantity", 'Only physical space can be used.');
         AssertEquals(10, RunLine."Need Quantity", 'Need is capped by physical space.');
@@ -80,7 +160,7 @@ codeunit 70002 "DP Inventory Tests KBS"
         TransferLine."Quantity (Base)" := 12;
         TransferLine."Outstanding Qty. (Base)" := 0;
         TransferLine.Insert(false);
-        Inventory.BuildRunLine(SKU, Setup, RunRecord, RunLine);
+        Inventory.BuildRunLine(SKU, Setup, RunRecord, 7, RunLine);
         AssertEquals(15, RunLine."Incoming Quantity", 'Unshipped plus transit, excluding duplicate derived lines.');
         AssertEquals(92, Inventory.GetHubAvailable(SKU."Item No.", '', Setup."Hub Location Code"), 'Only unshipped quantity is committed at the hub.');
     end;
@@ -127,7 +207,7 @@ codeunit 70002 "DP Inventory Tests KBS"
         PurchaseLine."Drop Shipment" := true;
         PurchaseLine."Outstanding Qty. (Base)" := 50;
         PurchaseLine.Insert(false);
-        Inventory.BuildRunLine(SKU, Setup, RunRecord, RunLine);
+        Inventory.BuildRunLine(SKU, Setup, RunRecord, 7, RunLine);
         AssertEquals(6, RunLine."Incoming Quantity", 'Capacity includes future receipts but excludes drop shipment.');
         AssertEquals(34, RunLine."Need Quantity", 'No history replenishes to safety stock, less incoming.');
     end;
@@ -168,6 +248,7 @@ codeunit 70002 "DP Inventory Tests KBS"
         SKU.Insert(false);
         Setup."Hub Location Code" := 'DPTESTHUB';
         Setup."Sales History Days" := 56;
+        Setup."Min. Days In Stock" := 14;
         RunRecord."Planning Date" := DMY2Date(8, 9, 2026);
     end;
 

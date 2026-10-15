@@ -1,6 +1,6 @@
 namespace Knowit.DeliveryPlanner;
 
-page 62103 "DP Runs KBS"
+page 78903 "DP Runs KBS"
 {
     Caption = 'DeliveryPlanner-kjøringslogg';
     PageType = List;
@@ -22,6 +22,15 @@ page 62103 "DP Runs KBS"
                 field(Status; Rec.Status) { ApplicationArea = All; }
                 field(CreateOrders; Rec."Create Orders") { ApplicationArea = All; }
                 field(UserID; Rec."User ID") { ApplicationArea = All; }
+                field(SalesWarning; Rec."Sales Warning") { ApplicationArea = All; }
+                field(StoresWithoutSales; Rec."Stores Without Sales") { ApplicationArea = All; }
+                field(StoresChecked; Rec."Stores Checked") { ApplicationArea = All; Visible = false; }
+                field(LineCount; Rec."Line Count") { ApplicationArea = All; }
+                field(OrdersCreated; Rec."Orders Created") { ApplicationArea = All; }
+                field(OrdersAwaitingApproval; Rec."Orders Awaiting Approval") { ApplicationArea = All; }
+                field(SnapshotDuration; Rec."Snapshot Duration") { ApplicationArea = All; Visible = false; }
+                field(PlanningDuration; Rec."Planning Duration") { ApplicationArea = All; Visible = false; }
+                field(OrderDuration; Rec."Order Duration") { ApplicationArea = All; Visible = false; }
                 field(ErrorText; Rec."Error Text") { ApplicationArea = All; }
                 field(RunID; Rec."Run ID") { ApplicationArea = All; }
             }
@@ -40,6 +49,15 @@ page 62103 "DP Runs KBS"
                 RunObject = page "DP Run Lines KBS";
                 RunPageLink = "Run ID" = field("Run ID");
             }
+            action(Exceptions)
+            {
+                Caption = 'Avvik';
+                ApplicationArea = All;
+                Image = ErrorLog;
+                ToolTip = 'Viser linjene i kjøringen som er tomme, har udekket behov, ligger over makslager eller mangler oppsett.';
+                RunObject = page "DP Exceptions KBS";
+                RunPageLink = "Run ID" = field("Run ID");
+            }
             action(ProposalLog)
             {
                 Caption = 'Forslag og ordre';
@@ -53,6 +71,7 @@ page 62103 "DP Runs KBS"
         area(Promoted)
         {
             actionref(RunLinesPromoted; RunLines) { }
+            actionref(ExceptionsPromoted; Exceptions) { }
             actionref(ProposalLogPromoted; ProposalLog) { }
         }
     }

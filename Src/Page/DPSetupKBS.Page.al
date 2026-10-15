@@ -1,6 +1,6 @@
 namespace Knowit.DeliveryPlanner;
 
-page 62100 "DP Setup KBS"
+page 78900 "DP Setup KBS"
 {
     Caption = 'DeliveryPlanner-oppsett';
     PageType = Card;
@@ -20,6 +20,7 @@ page 62100 "DP Setup KBS"
                 field(Enabled; Rec.Enabled) { ApplicationArea = All; }
                 field(HubLocationCode; Rec."Hub Location Code") { ApplicationArea = All; ShowMandatory = true; }
                 field(SalesHistoryDays; Rec."Sales History Days") { ApplicationArea = All; }
+                field(MinDaysInStock; Rec."Min. Days In Stock") { ApplicationArea = All; }
             }
             group(Worksheet)
             {
@@ -31,6 +32,19 @@ page 62100 "DP Setup KBS"
             {
                 Caption = 'Nattjobb';
                 field(JobStartTime; Rec."Job Start Time") { ApplicationArea = All; }
+                field(LogRetentionDays; Rec."Log Retention Days") { ApplicationArea = All; }
+            }
+            group(Notification)
+            {
+                Caption = 'Varsling';
+                field(NotificationEmail; Rec."Notification Email") { ApplicationArea = All; }
+                field(SalesAlertPct; Rec."Sales Alert %") { ApplicationArea = All; }
+            }
+            group(Approval)
+            {
+                Caption = 'Godkjenning';
+                field(ApprovalFactor; Rec."Approval Factor") { ApplicationArea = All; }
+                field(ApprovalHistoryOrders; Rec."Approval History Orders") { ApplicationArea = All; }
             }
         }
     }
@@ -123,6 +137,30 @@ page 62100 "DP Setup KBS"
                     Management.OpenWorksheet();
                 end;
             }
+            action(KPIs)
+            {
+                Caption = 'Nøkkeltall';
+                ApplicationArea = All;
+                Image = AnalysisView;
+                ToolTip = 'Viser servicegrad, dager med dekning, tomme varer og overlager per butikk og kategori for siste kjøring.';
+                RunObject = page "DP KPIs KBS";
+            }
+            action(StoreOrders)
+            {
+                Caption = 'Butikkordrer';
+                ApplicationArea = All;
+                Image = TransferOrder;
+                ToolTip = 'Viser ordrene DeliveryPlanner har opprettet og om de ventet på godkjenning.';
+                RunObject = page "DP Store Orders KBS";
+            }
+            action(Exceptions)
+            {
+                Caption = 'Avviksliste';
+                ApplicationArea = All;
+                Image = ErrorLog;
+                ToolTip = 'Viser butikker og varer fra siste kjøring som er tomme, har udekket behov, ligger over makslager eller mangler oppsett.';
+                RunObject = page "DP Exceptions KBS";
+            }
             action(RunHistory)
             {
                 Caption = 'Kjøringslogg';
@@ -137,6 +175,8 @@ page 62100 "DP Setup KBS"
             actionref(CalculatePromoted; Calculate) { }
             actionref(RunPlannerPromoted; RunPlanner) { }
             actionref(AssortmentPromoted; Assortment) { }
+            actionref(ExceptionsPromoted; Exceptions) { }
+            actionref(KPIsPromoted; KPIs) { }
             actionref(RunHistoryPromoted; RunHistory) { }
         }
     }

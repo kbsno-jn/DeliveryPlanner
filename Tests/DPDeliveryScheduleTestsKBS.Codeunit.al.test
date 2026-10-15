@@ -1,0 +1,174 @@
+namespace Knowit.DeliveryPlanner;
+
+using Microsoft.Foundation.Shipping;
+using Microsoft.Inventory.Location;
+using Microsoft.Inventory.Transfer;
+
+codeunit 70006 "DP Delivery Schedule Tests KBS"
+{
+    Subtype = Test;
+    TestPermissions = Disabled;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure TransportTimeComesFromRoute()
+    var
+        PlanningDate: Date;
+    begin
+        CreateFixture();
+        PlanningDate := DMY2Date(10, 10, 2026);
+        AssertTrue(Schedule.CalcReceiptDate('DPSCHHUB', 'DPSCHST', PlanningDate) >= PlanningDate + 2, 'Two days shipping time on the route.');
+    end;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure ShipsWhenArrivalIsDeliveryDay()
+    var
+        Store: Record Location;
+        PlanningDate: Date;
+        ReceiptDate: Date;
+        NextReceiptDate: Date;
+        ExpectedReceipt: Date;
+        CoverageDays: Integer;
+        ShipsNow: Boolean;
+    begin
+        CreateFixture();
+        PlanningDate := DMY2Date(10, 10, 2026);
+        ExpectedReceipt := Schedule.CalcReceiptDate('DPSCHHUB', 'DPSCHST', PlanningDate);
+        SetDeliveryDay('DPSCHST', Date2DWY(ExpectedReceipt, 1));
+        Store.Get('DPSCHST');
+
+        AssertTrue(Schedule.GetSchedule('DPSCHHUB', Store, PlanningDate, 7, ShipsNow, ReceiptDate, NextReceiptDate, CoverageDays), 'Schedule found.');
+        AssertTrue(ShipsNow, 'The order arrives on a delivery day.');
+        AssertTrue(ReceiptDate = ExpectedReceipt, 'Receipt date from the route.');
+        AssertTrue(NextReceiptDate > ReceiptDate, 'Next delivery is after this delivery.');
+        AssertTrue(Date2DWY(NextReceiptDate, 1) = Date2DWY(ReceiptDate, 1), 'Next delivery is on the same weekday.');
+        AssertTrue(CoverageDays = NextReceiptDate - PlanningDate, 'Coverage lasts until the next delivery arrives.');
+    end;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure WaitsWhenArrivalIsNotDeliveryDay()
+    var
+        Store: Record Location;
+        PlanningDate: Date;
+        ReceiptDate: Date;
+        NextReceiptDate: Date;
+        ExpectedReceipt: Date;
+        CoverageDays: Integer;
+        ShipsNow: Boolean;
+    begin
+        CreateFixture();
+        PlanningDate := DMY2Date(10, 10, 2026);
+        ExpectedReceipt := Schedule.CalcReceiptDate('DPSCHHUB', 'DPSCHST', PlanningDate);
+        SetDeliveryDay('DPSCHST', Date2DWY(ExpectedReceipt + 1, 1));
+        Store.Get('DPSCHST');
+
+        AssertTrue(Schedule.GetSchedule('DPSCHHUB', Store, PlanningDate, 7, ShipsNow, ReceiptDate, NextReceiptDate, CoverageDays), 'Schedule found.');
+        AssertTrue(not ShipsNow, 'No order when it would arrive on a day without delivery.');
+        AssertTrue(Schedule.GetFirstDeliveryDate('DPSCHHUB', Store, PlanningDate) > ExpectedReceipt, 'The first delivery is later.');
+    end;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure StoreWithoutDeliveryDaysShipsEveryNight()
+    var
+        Store: Record Location;
+        ReceiptDate: Date;
+        NextReceiptDate: Date;
+        CoverageDays: Integer;
+        ShipsNow: Boolean;
+    begin
+        CreateFixture();
+        Store.Get('DPSCHST');
+        AssertTrue(Schedule.GetSchedule('DPSCHHUB', Store, DMY2Date(10, 10, 2026), 7, ShipsNow, ReceiptDate, NextReceiptDate, CoverageDays), 'Schedule found.');
+        AssertTrue(ShipsNow, 'Stores without delivery days are replenished every night.');
+        AssertTrue(CoverageDays = 7, 'Category coverage is kept.');
+        AssertTrue(NextReceiptDate = 0D, 'No next delivery date.');
+    end;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure DeliveryDaysMapToWeekdays()
+    var
+        Store: Record Location;
+    begin
+        Store.Init();
+        Store."DP Delivery Monday KBS" := true;
+        Store."DP Delivery Thursday KBS" := true;
+        AssertTrue(Store.DPHasDeliveryPlanKBS(), 'Delivery plan exists.');
+        AssertTrue(Store.DPIsDeliveryDayKBS(DMY2Date(12, 10, 2026)), 'Monday 12 October 2026.');
+        AssertTrue(Store.DPIsDeliveryDayKBS(DMY2Date(15, 10, 2026)), 'Thursday 15 October 2026.');
+        AssertTrue(not Store.DPIsDeliveryDayKBS(DMY2Date(13, 10, 2026)), 'Tuesday 13 October 2026.');
+        AssertTrue(not Store.DPIsDeliveryDayKBS(DMY2Date(18, 10, 2026)), 'Sunday 18 October 2026.');
+    end;
+
+    local procedure CreateFixture()
+    var
+        ShippingAgent: Record "Shipping Agent";
+        ShippingAgentServices: Record "Shipping Agent Services";
+        Route: Record "Transfer Route";
+    begin
+        CreateLocation('DPSCHHUB', false);
+        CreateLocation('DPSCHTR', true);
+        CreateLocation('DPSCHST', false);
+        ShippingAgent.Init();
+        ShippingAgent.Code := 'DPSCHSA';
+        ShippingAgent.Insert(false);
+        ShippingAgentServices.Init();
+        ShippingAgentServices."Shipping Agent Code" := ShippingAgent.Code;
+        ShippingAgentServices.Code := 'NORD2D';
+        Evaluate(ShippingAgentServices."Shipping Time", '<2D>');
+        ShippingAgentServices.Insert(false);
+        Route.Init();
+        Route."Transfer-from Code" := 'DPSCHHUB';
+        Route."Transfer-to Code" := 'DPSCHST';
+        Route."In-Transit Code" := 'DPSCHTR';
+        Route."Shipping Agent Code" := ShippingAgent.Code;
+        Route."Shipping Agent Service Code" := ShippingAgentServices.Code;
+        Route.Insert(false);
+    end;
+
+    local procedure CreateLocation(LocationCode: Code[10]; InTransit: Boolean)
+    var
+        Location: Record Location;
+    begin
+        Location.Init();
+        Location.Code := LocationCode;
+        Location."Use As In-Transit" := InTransit;
+        Location.Insert(false);
+    end;
+
+    local procedure SetDeliveryDay(LocationCode: Code[10]; DayOfWeek: Integer)
+    var
+        Location: Record Location;
+    begin
+        Location.Get(LocationCode);
+        case DayOfWeek of
+            1:
+                Location."DP Delivery Monday KBS" := true;
+            2:
+                Location."DP Delivery Tuesday KBS" := true;
+            3:
+                Location."DP Delivery Wednesday KBS" := true;
+            4:
+                Location."DP Delivery Thursday KBS" := true;
+            5:
+                Location."DP Delivery Friday KBS" := true;
+            6:
+                Location."DP Delivery Saturday KBS" := true;
+            7:
+                Location."DP Delivery Sunday KBS" := true;
+        end;
+        Location.Modify(false);
+    end;
+
+    local procedure AssertTrue(Actual: Boolean; Context: Text)
+    begin
+        if not Actual then
+            Error(Context);
+    end;
+
+    var
+        Schedule: Codeunit "DP Delivery Schedule KBS";
+}

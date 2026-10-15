@@ -1,6 +1,6 @@
 namespace Knowit.DeliveryPlanner;
 
-enum 62100 "DP Run Status KBS"
+enum 78900 "DP Run Status KBS"
 {
     Extensible = false;
     Caption = 'DeliveryPlanner-status';

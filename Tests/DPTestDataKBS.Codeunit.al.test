@@ -28,6 +28,7 @@ codeunit 70010 "DP Test Data KBS"
         CreatePresisjonScenario();
         CreateBlokkertScenario();
         CreateUgyldigOppsettScenario();
+        CreateLeveringScenario();
         Message(AllCreatedMsg);
     end;
 
@@ -59,7 +60,8 @@ codeunit 70010 "DP Test Data KBS"
         EnsureCustomer(CustomerTok);
     end;
 
-    // Behov 100 og 20, vekt 2 og 1, tilgjengelig 30 => forventet tildeling 20 og 10.
+    // Behov 100 og 20 uten salg, tilgjengelig 30. Butikkene fylles til like mange dagers dekning
+    // (målet delt på dekningsdagene): forventet tildeling 21 og 9.
     local procedure CreateFordelingScenario()
     begin
         CreateItem(FordItemTok, FordItemDescLbl, 0);
@@ -70,7 +72,7 @@ codeunit 70010 "DP Test Data KBS"
         CreateSKU(FordItemTok, '', FordStoreBTok, 20, 20, 0);
     end;
 
-    // Tre butikker der den minste metter sitt behov først; resten fordeles på nytt etter vekt.
+    // Tre butikker uten salg og 40 tilgjengelig. Like mange dagers dekning gir omtrent 27, 11 og 2.
     local procedure CreateFordeling2Scenario()
     begin
         CreateItem(Ford2ItemTok, Ford2ItemDescLbl, 0);
@@ -188,7 +190,7 @@ codeunit 70010 "DP Test Data KBS"
                 Database::"Sales Line", SalesLine."Document Type".AsInteger(), SalesLine."Document No.", SalesLine."Line No.");
     end;
 
-    // Salg og returer i historikkperioden gir netto daglig salg.
+    // Salg 112 og retur 56 uten beholdning i butikken: netto 56 fordelt på minst 14 dager = 4 per dag.
     local procedure CreateReturerScenario()
     begin
         CreateItem(ReturItemTok, ReturItemDescLbl, 0);
@@ -250,7 +252,7 @@ codeunit 70010 "DP Test Data KBS"
         CreateSKU(BlockedItemTok, '', BlockedStoreTok, 50, 50, 0);
     end;
 
-    // Ugyldig SKU (null makslager) opprettes inaktiv. Bruk "Slå av/på ugyldig oppsett" for å teste feilmeldingen isolert.
+    // Ugyldig SKU (null makslager) opprettes inaktiv. Bruk "Slå av/på ugyldig oppsett" for å se den i avvikslisten.
     local procedure CreateUgyldigOppsettScenario()
     var
         SKU: Record "Stockkeeping Unit";
@@ -268,6 +270,24 @@ codeunit 70010 "DP Test Data KBS"
         SKU.Validate("Maximum Inventory", 0);
         SKU.Validate("DP Enabled KBS", false);
         SKU.Modify(true);
+    end;
+
+    // Butikk med levering mandag og torsdag. Ordre lages bare når de kommer frem på en leveringsdag,
+    // og mengden dekker salget frem til neste levering.
+    local procedure CreateLeveringScenario()
+    var
+        Location: Record Location;
+    begin
+        CreateItem(LevItemTok, LevItemDescLbl, 0);
+        CreateStore(LevStoreTok, LevStoreDescLbl, 'SMALL');
+        Location.Get(LevStoreTok);
+        Location.Validate("DP Delivery Monday KBS", true);
+        Location.Validate("DP Delivery Thursday KBS", true);
+        Location.Modify(true);
+        PostAdjustment(LevItemTok, '', HubLocTok, 500, Today() - 30);
+        PostAdjustment(LevItemTok, '', LevStoreTok, 60, Today() - 30);
+        PostSale(LevItemTok, '', LevStoreTok, 56, Today() - 20);
+        CreateSKU(LevItemTok, '', LevStoreTok, 200, 0, 0);
     end;
 
     local procedure CreateLocation(LocationCode: Code[10]; LocationName: Text[50]; UseAsInTransit: Boolean)
@@ -502,7 +522,7 @@ codeunit 70010 "DP Test Data KBS"
     var
         NextJournalLineNo: Integer;
         AllCreatedMsg: Label 'Testdata for DeliveryPlanner er opprettet. Åpne DeliveryPlanner-oppsett og klikk Beregn DeliveryPlanner.';
-        InvalidSetupOnMsg: Label 'Ugyldig oppsett er nå aktivert. Kjør Beregn DeliveryPlanner for å se feilmeldingen, slå det deretter av igjen.';
+        InvalidSetupOnMsg: Label 'Ugyldig oppsett er nå aktivert. Kjør Beregn DeliveryPlanner og åpne Avviksliste: varen vises som Mangler oppsett, mens de andre butikkene beregnes som normalt.';
         InvalidSetupOffMsg: Label 'Ugyldig oppsett er nå deaktivert igjen.';
         HubNameLbl: Label 'DeliveryPlanner testhovedlager';
         TransitNameLbl: Label 'DeliveryPlanner test-transitt';
@@ -510,12 +530,12 @@ codeunit 70010 "DP Test Data KBS"
         JournalDescLbl: Label 'DeliveryPlanner testdata';
         VariantDescLbl: Label 'Testvariant';
         FordItemDescLbl: Label 'Fordeling - vare';
-        FordStoreADescLbl: Label 'Fordeling - butikk A (behov 100, vekt 2)';
-        FordStoreBDescLbl: Label 'Fordeling - butikk B (behov 20, vekt 1)';
+        FordStoreADescLbl: Label 'Fordeling - butikk A (behov 100, 14 dekningsdager)';
+        FordStoreBDescLbl: Label 'Fordeling - butikk B (behov 20, 7 dekningsdager)';
         Ford2ItemDescLbl: Label 'Fordeling med metning - vare';
-        Ford2StoreXDescLbl: Label 'Fordeling metning - butikk X (behov 100, vekt 2)';
-        Ford2StoreYDescLbl: Label 'Fordeling metning - butikk Y (behov 20, vekt 1)';
-        Ford2StoreZDescLbl: Label 'Fordeling metning - butikk Z (behov 5, vekt 1)';
+        Ford2StoreXDescLbl: Label 'Fordeling metning - butikk X (behov 100, 14 dekningsdager)';
+        Ford2StoreYDescLbl: Label 'Fordeling metning - butikk Y (behov 20, 7 dekningsdager)';
+        Ford2StoreZDescLbl: Label 'Fordeling metning - butikk Z (behov 5, 7 dekningsdager)';
         KapaItemDescLbl: Label 'Kapasitet - vare';
         KapaStoreDescLbl: Label 'Kapasitet - butikk (beholdning 90, maks 100, salg 30)';
         KolliItemDescLbl: Label 'Kolli - vare';
@@ -537,6 +557,8 @@ codeunit 70010 "DP Test Data KBS"
         BlockedStoreDescLbl: Label 'Blokkert - butikk (behov 50, men blokkert)';
         BadSetupItemDescLbl: Label 'Ugyldig oppsett - vare';
         BadSetupStoreDescLbl: Label 'Ugyldig oppsett - butikk (null makslager)';
+        LevItemDescLbl: Label 'Leveringsdager - vare';
+        LevStoreDescLbl: Label 'Leveringsdager - butikk (mandag og torsdag)';
         BaseUoMTok: Label 'STK', Locked = true;
         CustomerTok: Label 'DPTESTKUNDE', Locked = true;
         JournalTemplateTok: Label 'DPTEST', Locked = true;
@@ -576,4 +598,6 @@ codeunit 70010 "DP Test Data KBS"
         BlockedStoreTok: Label 'DPBLOKKA', Locked = true;
         BadSetupItemTok: Label 'DPUGYLDIG', Locked = true;
         BadSetupStoreTok: Label 'DPUGYLDIGA', Locked = true;
+        LevItemTok: Label 'DPLEV', Locked = true;
+        LevStoreTok: Label 'DPLEVA', Locked = true;
 }

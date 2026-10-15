@@ -2,7 +2,7 @@ namespace Knowit.DeliveryPlanner;
 
 using Microsoft.Inventory.Location;
 
-pageextension 62105 "DP Location List KBS" extends "Location List"
+pageextension 78905 "DP Location List KBS" extends "Location List"
 {
     layout
     {

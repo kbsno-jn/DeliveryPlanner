@@ -8,16 +8,23 @@ using Microsoft.Inventory.Transfer;
 using Microsoft.Purchases.Document;
 using Microsoft.Sales.Document;
 
-codeunit 62105 "DP Inventory KBS"
+codeunit 78905 "DP Inventory KBS"
 {
-    procedure BuildRunLine(SKU: Record "Stockkeeping Unit"; Setup: Record "DP Setup KBS"; RunRecord: Record "DP Run KBS"; var RunLine: Record "DP Run Line KBS")
+    procedure BuildRunLine(SKU: Record "Stockkeeping Unit"; Setup: Record "DP Setup KBS"; RunRecord: Record "DP Run KBS"; CoverageDays: Integer; var RunLine: Record "DP Run Line KBS")
     var
         Location: Record Location;
         Category: Record "DP Store Category KBS";
         NetPosition: Decimal;
+        SoldQuantity: Decimal;
+        DaysInStock: Integer;
+        SoldLastDay: Boolean;
     begin
         if Setup."Sales History Days" <= 0 then
             Error(HistoryDaysErr);
+        if Setup."Min. Days In Stock" <= 0 then
+            Error(MinDaysInStockErr);
+        if CoverageDays <= 0 then
+            Error(CoverageDaysErr);
         RunRecord.TestField("Planning Date");
         Location.Get(SKU."Location Code");
         Category.Get(Location."DP Category Code KBS");
@@ -26,18 +33,27 @@ codeunit 62105 "DP Inventory KBS"
         RunLine."Variant Code" := SKU."Variant Code";
         RunLine."Location Code" := SKU."Location Code";
         RunLine."Category Code" := Category.Code;
-        RunLine."Coverage Days" := Category."Coverage Days";
+        RunLine."Coverage Days" := CoverageDays;
         RunLine."Allocation Weight" := Category."Allocation Weight";
         RunLine."Quantity Precision" := GetQuantityPrecision(SKU."Item No.");
         RunLine."Order Multiple" := SKU."Order Multiple";
-        RunLine."Daily Sales" := GetDailySales(SKU, RunRecord."Planning Date", Setup."Sales History Days");
+        RunLine."Maximum Inventory" := SKU."Maximum Inventory";
+        RunLine."Daily Sales" := GetSalesRate(SKU."Item No.", SKU."Variant Code", SKU."Location Code", RunRecord."Planning Date",
+            Setup."Sales History Days", Setup."Min. Days In Stock", SoldQuantity, DaysInStock, SoldLastDay);
+        RunLine."Sold Quantity" := SoldQuantity;
+        RunLine."Sold Last Day" := SoldLastDay;
+        RunLine."Days In Stock" := DaysInStock;
         RunLine."Target Quantity" := Maximum(0, Minimum(SKU."Maximum Inventory",
-            Maximum(SKU."Safety Stock Quantity", RunLine."Daily Sales" * Category."Coverage Days")));
+            Maximum(SKU."Safety Stock Quantity", RunLine."Daily Sales" * CoverageDays)));
         RunLine.Inventory := GetInventory(SKU."Item No.", SKU."Variant Code", SKU."Location Code");
         RunLine."Incoming Quantity" := GetIncoming(SKU."Item No.", SKU."Variant Code", SKU."Location Code");
         RunLine."Outgoing Quantity" := GetOutgoing(SKU."Item No.", SKU."Variant Code", SKU."Location Code");
         RunLine."Capacity Quantity" := Maximum(0, SKU."Maximum Inventory" - Maximum(0, RunLine.Inventory) - RunLine."Incoming Quantity");
         NetPosition := RunLine.Inventory + RunLine."Incoming Quantity" - RunLine."Outgoing Quantity";
+        if RunLine."Daily Sales" > 0 then
+            RunLine."Days of Cover" := Maximum(0, NetPosition) / RunLine."Daily Sales"
+        else
+            RunLine."Days of Cover" := 0;
         RunLine."Need Quantity" := Minimum(RunLine."Capacity Quantity", Maximum(0, RunLine."Target Quantity" - NetPosition));
         RunLine."Suggested Quantity" := 0;
         RunLine."Allocated Quantity" := 0;
@@ -71,18 +87,81 @@ codeunit 62105 "DP Inventory KBS"
         exit(0.00001);
     end;
 
-    local procedure GetDailySales(SKU: Record "Stockkeeping Unit"; PlanningDate: Date; HistoryDays: Integer): Decimal
+    /// <summary>
+    /// Net sales per day in stock over the closed history period. A day counts as in stock when the
+    /// store held inventory at the start or end of the day, or sold the item that day. Days without
+    /// stock would otherwise look like days without demand. The divisor is never below MinDaysInStock.
+    /// </summary>
+    procedure GetSalesRate(ItemNo: Code[20]; VariantCode: Code[10]; LocationCode: Code[10]; PlanningDate: Date; HistoryDays: Integer; MinDaysInStock: Integer; var SoldQuantity: Decimal; var DaysInStock: Integer; var SoldLastDay: Boolean): Decimal
     var
         ItemLedgerEntry: Record "Item Ledger Entry";
+        DailyMovement: Query "DP Daily Item Movement KBS";
+        StartDate: Date;
+        EndDate: Date;
+        Day: Date;
+        RowDate: Date;
+        Opening: Decimal;
+        Closing: Decimal;
+        DayNet: Decimal;
+        DaySales: Decimal;
+        NetSales: Decimal;
+        DaySold: Boolean;
+        HasRow: Boolean;
     begin
-        SetLedgerFilters(ItemLedgerEntry, SKU."Item No.", SKU."Variant Code", SKU."Location Code");
-        ItemLedgerEntry.SetRange("Entry Type", ItemLedgerEntry."Entry Type"::Sale);
-        ItemLedgerEntry.SetRange("Posting Date", PlanningDate - HistoryDays, PlanningDate - 1);
+        SoldQuantity := 0;
+        DaysInStock := 0;
+        SoldLastDay := false;
+        StartDate := PlanningDate - HistoryDays;
+        EndDate := PlanningDate - 1;
+
+        SetLedgerFilters(ItemLedgerEntry, ItemNo, VariantCode, LocationCode);
+        ItemLedgerEntry.SetFilter("Posting Date", '<%1', StartDate);
         ItemLedgerEntry.CalcSums(Quantity);
-        exit(Maximum(0, -ItemLedgerEntry.Quantity) / HistoryDays);
+        Opening := ItemLedgerEntry.Quantity;
+
+        DailyMovement.SetRange(Item_No, ItemNo);
+        DailyMovement.SetRange(Variant_Code, VariantCode);
+        DailyMovement.SetRange(Location_Code, LocationCode);
+        DailyMovement.SetRange(Posting_Date, StartDate, EndDate);
+        DailyMovement.Open();
+        HasRow := DailyMovement.Read();
+        if HasRow then
+            RowDate := DailyMovement.Posting_Date;
+        Day := StartDate;
+        while Day <= EndDate do begin
+            DayNet := 0;
+            DaySales := 0;
+            DaySold := false;
+            // AL evaluates both operands of "and", so the row date is cached instead of read
+            // from the query after the last row.
+            while HasRow and (RowDate = Day) do begin
+                DayNet += DailyMovement.Quantity;
+                if DailyMovement.Entry_Type = DailyMovement.Entry_Type::Sale then begin
+                    DaySales += DailyMovement.Quantity;
+                    DaySold := true;
+                end;
+                HasRow := DailyMovement.Read();
+                if HasRow then
+                    RowDate := DailyMovement.Posting_Date;
+            end;
+            Closing := Opening + DayNet;
+            if (Opening > 0) or (Closing > 0) or DaySold then
+                DaysInStock += 1;
+            if Day = EndDate then
+                SoldLastDay := DaySold;
+            NetSales += -DaySales;
+            Opening := Closing;
+            Day += 1;
+        end;
+        DailyMovement.Close();
+
+        SoldQuantity := Maximum(0, NetSales);
+        if SoldQuantity = 0 then
+            exit(0);
+        exit(SoldQuantity / Maximum(DaysInStock, Minimum(MinDaysInStock, HistoryDays)));
     end;
 
-    local procedure GetInventory(ItemNo: Code[20]; VariantCode: Code[10]; LocationCode: Code[10]): Decimal
+    procedure GetInventory(ItemNo: Code[20]; VariantCode: Code[10]; LocationCode: Code[10]): Decimal
     var
         ItemLedgerEntry: Record "Item Ledger Entry";
     begin
@@ -217,6 +296,8 @@ codeunit 62105 "DP Inventory KBS"
 
     var
         HistoryDaysErr: Label 'Antall dager med salgshistorikk må være større enn null.';
+        MinDaysInStockErr: Label 'Minste antall dager på lager må være større enn null.';
+        CoverageDaysErr: Label 'Dekningsperioden må være minst én dag.';
         NoCapacityLbl: Label 'Ingen ledig kapasitet etter beholdning og inngående ordre.';
         TargetCoveredLbl: Label 'Beholdning og inngående ordre dekker målet.';
 }

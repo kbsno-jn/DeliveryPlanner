@@ -3,8 +3,9 @@ namespace Knowit.DeliveryPlanner;
 using Microsoft.Inventory.Location;
 using Microsoft.Inventory.Requisition;
 
-table 62100 "DP Setup KBS"
+table 78900 "DP Setup KBS"
 {
+    AllowInCustomizations = AsReadWrite;
     Caption = 'DeliveryPlanner-oppsett';
     DataClassification = CustomerContent;
     DrillDownPageId = "DP Setup KBS";
@@ -68,6 +69,50 @@ table 62100 "DP Setup KBS"
             Caption = 'Starttid for nattjobb';
             InitValue = 020000T;
             ToolTip = 'Angir tidspunktet for nattjobben i jobbbrukerens tidssone. Legg kjøringen etter salgsimporten.';
+        }
+        field(8; "Min. Days In Stock"; Integer)
+        {
+            Caption = 'Minste antall dager på lager';
+            InitValue = 14;
+            MinValue = 1;
+            ToolTip = 'Angir hvor mange dager salget minst fordeles på. Dager uten beholdning holdes utenfor salgstakten, men et salg deles aldri på færre dager enn dette.';
+        }
+        field(9; "Notification Email"; Text[250])
+        {
+            Caption = 'Varsel til e-post';
+            ExtendedDatatype = EMail;
+            ToolTip = 'Angir e-postadressen som får varsel når nattjobben feiler, når salg for i går mangler, eller når ordrer venter på godkjenning. Skill flere adresser med semikolon. Velg avsenderkonto for scenarioet DeliveryPlanner under E-postscenarioer.';
+        }
+        field(10; "Sales Alert %"; Decimal)
+        {
+            Caption = 'Varsle ved manglende salg (%)';
+            InitValue = 50;
+            MinValue = 0;
+            MaxValue = 100;
+            DecimalPlaces = 0 : 1;
+            ToolTip = 'Angir hvor stor andel av butikkene som kan mangle bokført salg for i går før kjøringen varsler at salgsimporten trolig ikke er ferdig. 0 slår av kontrollen. Planen beregnes uansett.';
+        }
+        field(11; "Log Retention Days"; Integer)
+        {
+            Caption = 'Behold kjøringslogg (dager)';
+            InitValue = 90;
+            MinValue = 0;
+            ToolTip = 'Angir hvor mange dager kjøringer, beregningsgrunnlag og forslag beholdes. Eldre logger slettes ved neste kjøring. 0 beholder alt.';
+        }
+        field(12; "Approval Factor"; Decimal)
+        {
+            Caption = 'Godkjenning over faktor';
+            InitValue = 2;
+            MinValue = 0;
+            DecimalPlaces = 0 : 2;
+            ToolTip = 'Angir hvor mange ganger større enn snittet av butikkens siste ordrer en ordre kan være før den venter på godkjenning i stedet for å frigis. 0 slår av godkjenning.';
+        }
+        field(13; "Approval History Orders"; Integer)
+        {
+            Caption = 'Ordrer i snittet';
+            InitValue = 4;
+            MinValue = 1;
+            ToolTip = 'Angir hvor mange av butikkens siste frigitte ordrer snittet beregnes fra. Butikker med færre tidligere ordrer godkjennes automatisk.';
         }
     }
     keys

@@ -5,7 +5,7 @@ using Microsoft.Inventory.Location;
 using Microsoft.Inventory.Requisition;
 using System.Threading;
 
-codeunit 62100 "DP Management KBS"
+codeunit 78900 "DP Management KBS"
 {
     procedure InitializeSetup()
     var
@@ -183,9 +183,12 @@ codeunit 62100 "DP Management KBS"
     procedure Execute(CreateOrders: Boolean): Guid
     var
         RunRecord: Record "DP Run KBS";
+        Notification: Codeunit "DP Notification KBS";
         FailureText: Text;
     begin
         InitializeSetup();
+        // Committed together with the new run record below.
+        DeleteOldRuns();
         RunRecord.Init();
         RunRecord."Run ID" := CreateGuid();
         RunRecord."Started At" := CurrentDateTime();
@@ -205,9 +208,68 @@ codeunit 62100 "DP Management KBS"
             RunRecord."Error Text" := CopyStr(FailureText, 1, MaxStrLen(RunRecord."Error Text"));
             RunRecord.Modify(true);
             Commit();
+            LogRunTelemetry(RunRecord);
+            // Interactive users see the error directly; the night job has nobody watching.
+            if not GuiAllowed() then
+                Notification.SendRunFailure(RunRecord);
             Error(RunFailedErr, RunRecord."Run ID", FailureText);
         end;
+        Commit();
+        RunRecord.Get(RunRecord."Run ID");
+        LogRunTelemetry(RunRecord);
+        if not GuiAllowed() then
+            Notification.SendRunSummary(RunRecord);
         exit(RunRecord."Run ID");
+    end;
+
+    /// <summary>
+    /// Deletes runs older than the retention period together with their lines and proposals.
+    /// Store order history is kept, since approval compares with the latest orders.
+    /// </summary>
+    procedure DeleteOldRuns() DeletedCount: Integer
+    var
+        Setup: Record "DP Setup KBS";
+        RunRecord: Record "DP Run KBS";
+        RunLine: Record "DP Run Line KBS";
+        Proposal: Record "DP Proposal Log KBS";
+    begin
+        if not Setup.Get('') then
+            exit;
+        if Setup."Log Retention Days" <= 0 then
+            exit;
+        RunRecord.SetFilter("Started At", '<%1', CreateDateTime(Today() - Setup."Log Retention Days", 0T));
+        RunRecord.SetFilter(Status, '<>%1', RunRecord.Status::Running);
+        if RunRecord.FindSet(true) then
+            repeat
+                RunLine.SetRange("Run ID", RunRecord."Run ID");
+                RunLine.DeleteAll(false);
+                Proposal.SetRange("Run ID", RunRecord."Run ID");
+                Proposal.DeleteAll(false);
+                RunRecord.Delete(false);
+                DeletedCount += 1;
+            until RunRecord.Next() = 0;
+    end;
+
+    local procedure LogRunTelemetry(RunRecord: Record "DP Run KBS")
+    var
+        Dimensions: Dictionary of [Text, Text];
+    begin
+        Dimensions.Add('RunId', Format(RunRecord."Run ID"));
+        Dimensions.Add('Status', Format(RunRecord.Status.AsInteger()));
+        Dimensions.Add('CreateOrders', Format(RunRecord."Create Orders", 0, 9));
+        Dimensions.Add('LineCount', Format(RunRecord."Line Count"));
+        Dimensions.Add('SnapshotMs', Format(RunRecord."Snapshot Duration", 0, 9));
+        Dimensions.Add('PlanningMs', Format(RunRecord."Planning Duration", 0, 9));
+        Dimensions.Add('OrderMs', Format(RunRecord."Order Duration", 0, 9));
+        Dimensions.Add('OrdersCreated', Format(RunRecord."Orders Created"));
+        Dimensions.Add('OrdersAwaitingApproval', Format(RunRecord."Orders Awaiting Approval"));
+        Dimensions.Add('SalesWarning', Format(RunRecord."Sales Warning", 0, 9));
+        if RunRecord.Status = RunRecord.Status::Failed then
+            Session.LogMessage('DP0002', RunFailedTelemetryTxt, Verbosity::Error, DataClassification::SystemMetadata,
+                TelemetryScope::ExtensionPublisher, Dimensions)
+        else
+            Session.LogMessage('DP0001', RunFinishedTelemetryTxt, Verbosity::Normal, DataClassification::SystemMetadata,
+                TelemetryScope::ExtensionPublisher, Dimensions);
     end;
 
     procedure OpenWorksheet()
@@ -298,5 +360,7 @@ codeunit 62100 "DP Management KBS"
         StoreCategoryRequiredErr: Label 'Velg en butikkategori når lokasjonene aktiveres for DeliveryPlanner.';
         HubRequiredErr: Label 'Angi hovedlager før lagerføringsenheter kan opprettes fra makslager på varekortet.';
         ItemMaximumsAppliedMsg: Label 'Standardoppsettet er opprettet. Makslager fra varekortet: %1 lagerføringsenheter opprettet og %2 oppdatert.', Comment = '%1 = created SKUs, %2 = updated SKUs';
+        RunFinishedTelemetryTxt: Label 'DeliveryPlanner run finished.', Locked = true;
+        RunFailedTelemetryTxt: Label 'DeliveryPlanner run failed.', Locked = true;
         RunFailedErr: Label 'DeliveryPlanner-kjøring %1 feilet: %2', Comment = '%1 = run ID, %2 = original error';
 }
