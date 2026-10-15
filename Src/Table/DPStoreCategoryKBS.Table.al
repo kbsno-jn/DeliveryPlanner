@@ -1,7 +1,8 @@
 namespace Knowit.DeliveryPlanner;
 
-table 62101 "DP Store Category KBS"
+table 78901 "DP Store Category KBS"
 {
+    AllowInCustomizations = AsReadWrite;
     Caption = 'DeliveryPlanner-butikkategori';
     DataClassification = CustomerContent;
     LookupPageId = "DP Store Categories KBS";

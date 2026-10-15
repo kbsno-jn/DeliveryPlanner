@@ -2,7 +2,7 @@ namespace Knowit.DeliveryPlanner;
 
 using Microsoft.Inventory.Transfer;
 
-page 62105 "DP Proposal Log KBS"
+page 78905 "DP Proposal Log KBS"
 {
     Caption = 'DeliveryPlanner-forslag og ordre';
     PageType = List;
@@ -42,16 +42,35 @@ page 62105 "DP Proposal Log KBS"
                 ApplicationArea = All;
                 Image = TransferOrder;
                 ToolTip = 'Åpner den opprettede overføringsordren dersom den fortsatt finnes som åpen ordre.';
+                Enabled = HasTransferOrder;
 
                 trigger OnAction()
                 var
                     TransferHeader: Record "Transfer Header";
+                    RunRecord: Record "DP Run KBS";
                 begin
-                    Rec.TestField("Transfer Order No.");
-                    TransferHeader.Get(Rec."Transfer Order No.");
+                    if Rec."Transfer Order No." = '' then begin
+                        if RunRecord.Get(Rec."Run ID") then
+                            if not RunRecord."Create Orders" then
+                                Error(CalculationOnlyErr);
+                        Error(NoOrderErr);
+                    end;
+                    if not TransferHeader.Get(Rec."Transfer Order No.") then
+                        Error(OrderGoneErr, Rec."Transfer Order No.");
                     Page.Run(Page::"Transfer Order", TransferHeader);
                 end;
             }
         }
     }
+
+    trigger OnAfterGetCurrRecord()
+    begin
+        HasTransferOrder := Rec."Transfer Order No." <> '';
+    end;
+
+    var
+        HasTransferOrder: Boolean;
+        CalculationOnlyErr: Label 'Forslaget er fra Beregn DeliveryPlanner, som ikke oppretter ordrer. Bruk Kjør DeliveryPlanner eller vent på nattjobben.';
+        NoOrderErr: Label 'Forslaget ble ikke til en overføringsordre fordi tildelt antall er 0. Se begrunnelsen i beregningsgrunnlaget.';
+        OrderGoneErr: Label 'Overføringsordre %1 finnes ikke lenger som åpen ordre. Den er trolig ferdig mottatt. Se bokførte overføringer.', Comment = '%1 = transfer order number';
 }

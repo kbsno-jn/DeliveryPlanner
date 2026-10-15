@@ -1,0 +1,186 @@
+namespace Knowit.DeliveryPlanner;
+
+using Microsoft.Inventory.Transfer;
+
+codeunit 70008 "DP Monitoring Tests KBS"
+{
+    Subtype = Test;
+    TestPermissions = Disabled;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure AverageUsesLatestReleasedOrders()
+    begin
+        AddStoreOrder('DPMONST', DMY2Date(1, 10, 2026), 1000, Enum::"DP Approval Status KBS"::None);
+        AddStoreOrder('DPMONST', DMY2Date(2, 10, 2026), 10, Enum::"DP Approval Status KBS"::None);
+        AddStoreOrder('DPMONST', DMY2Date(3, 10, 2026), 20, Enum::"DP Approval Status KBS"::Approved);
+        AddStoreOrder('DPMONST', DMY2Date(4, 10, 2026), 500, Enum::"DP Approval Status KBS"::"Awaiting Approval");
+        AddStoreOrder('DPMONST', DMY2Date(5, 10, 2026), 30, Enum::"DP Approval Status KBS"::None);
+        AddStoreOrder('DPMONOTH', DMY2Date(5, 10, 2026), 900, Enum::"DP Approval Status KBS"::None);
+        // Latest three released or approved: 30, 20 and 10. Held and older orders are ignored.
+        AssertEquals(20, Approval.GetAverageQuantity('DPMONST', 3), 'Average of the latest three.');
+    end;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure TooFewOrdersGiveNoAverage()
+    begin
+        AddStoreOrder('DPMONST', DMY2Date(1, 10, 2026), 10, Enum::"DP Approval Status KBS"::None);
+        AddStoreOrder('DPMONST', DMY2Date(2, 10, 2026), 20, Enum::"DP Approval Status KBS"::None);
+        AssertEquals(0, Approval.GetAverageQuantity('DPMONST', 4), 'New stores are not compared.');
+    end;
+
+    [Test]
+    procedure ApprovalAboveFactorOnly()
+    var
+        Setup: Record "DP Setup KBS";
+    begin
+        Setup."Approval Factor" := 2;
+        AssertTrue(Approval.NeedsApproval(Setup, 41, 20), 'Above twice the average.');
+        AssertTrue(not Approval.NeedsApproval(Setup, 40, 20), 'Exactly twice the average is released.');
+        AssertTrue(not Approval.NeedsApproval(Setup, 1000, 0), 'No average, no approval.');
+        Setup."Approval Factor" := 0;
+        AssertTrue(not Approval.NeedsApproval(Setup, 1000, 20), 'Factor 0 turns approval off.');
+    end;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure OrderQuantityIgnoresDerivedLines()
+    var
+        TransferLine: Record "Transfer Line";
+    begin
+        TransferLine.Init();
+        TransferLine."Document No." := 'DPMONTO';
+        TransferLine."Line No." := 10000;
+        TransferLine."Quantity (Base)" := 12;
+        TransferLine.Insert(false);
+        TransferLine."Line No." := 20000;
+        TransferLine."Quantity (Base)" := 8;
+        TransferLine.Insert(false);
+        TransferLine."Line No." := 30000;
+        TransferLine."Derived From Line No." := 10000;
+        TransferLine."Quantity (Base)" := 12;
+        TransferLine.Insert(false);
+        AssertEquals(20, Approval.GetOrderQuantity('DPMONTO'), 'In-transit lines repeat the original quantity.');
+    end;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure KeyFiguresPerStoreAndCategory()
+    var
+        RunRecord: Record "DP Run KBS";
+        TempKPI: Record "DP KPI Buffer KBS" temporary;
+        TempTotal: Record "DP KPI Buffer KBS" temporary;
+    begin
+        RunRecord := AddRun(Enum::"DP Run Status KBS"::Completed, CurrentDateTime());
+        // Store A: 40 and 20 of 40 days in stock, one empty item, one over maximum by 5.
+        AddRunLine(RunRecord, 1, 'DPMONA', 'SMALL', 40, 10, 0, 0, 0, Enum::"DP Exception KBS"::None);
+        AddRunLine(RunRecord, 2, 'DPMONA', 'SMALL', 20, 0, 1, 100, 105, Enum::"DP Exception KBS"::"Over Maximum");
+        // Store B: setup problem is counted as an exception only.
+        AddRunLine(RunRecord, 3, 'DPMONB', 'SMALL', 0, 0, 0, 0, 0, Enum::"DP Exception KBS"::"Missing Setup");
+
+        KPIMgt.FillBuffer(RunRecord, TempKPI);
+        TempKPI.Get(TempKPI."Group Type"::Store, 'DPMONA');
+        AssertEquals(75, TempKPI."Service Level %", 'Sixty of eighty days in stock.');
+        AssertEquals(1, TempKPI."Out of Stock", 'One empty item.');
+        AssertEquals(1, TempKPI."Over Maximum", 'One item over maximum.');
+        AssertEquals(5, TempKPI."Overstock Quantity", 'Five units above maximum.');
+        AssertEquals(10, TempKPI."Avg. Days of Cover", 'Cover is averaged over items with sales.');
+        TempKPI.Get(TempKPI."Group Type"::Store, 'DPMONB');
+        AssertEquals(1, TempKPI."Exception Count", 'Setup problem is an exception.');
+        AssertEquals(0, TempKPI."Out of Stock", 'Uncalculated lines are not counted as empty.');
+        TempKPI.Get(TempKPI."Group Type"::Category, 'SMALL');
+        AssertEquals(3, TempKPI."Line Count", 'Category spans both stores.');
+
+        KPIMgt.CalcTotals(RunRecord, TempTotal);
+        AssertEquals(75, TempTotal."Service Level %", 'Total service level.');
+        AssertEquals(2, TempTotal."Exception Count", 'Total exceptions.');
+    end;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure OldRunsAreDeleted()
+    var
+        Setup: Record "DP Setup KBS";
+        OldRun: Record "DP Run KBS";
+        NewRun: Record "DP Run KBS";
+        RunningRun: Record "DP Run KBS";
+        RunLine: Record "DP Run Line KBS";
+        Management: Codeunit "DP Management KBS";
+    begin
+        Management.InitializeSetup();
+        Setup.Get('');
+        Setup."Log Retention Days" := 30;
+        Setup.Modify(false);
+        OldRun := AddRun(Enum::"DP Run Status KBS"::Completed, CreateDateTime(Today() - 60, 0T));
+        AddRunLine(OldRun, 1, 'DPMONA', 'SMALL', 1, 1, 1, 1, 1, Enum::"DP Exception KBS"::None);
+        RunningRun := AddRun(Enum::"DP Run Status KBS"::Running, CreateDateTime(Today() - 60, 0T));
+        NewRun := AddRun(Enum::"DP Run Status KBS"::Completed, CreateDateTime(Today() - 5, 0T));
+
+        Management.DeleteOldRuns();
+        AssertTrue(not OldRun.Find(), 'Old run is deleted.');
+        RunLine.SetRange("Run ID", OldRun."Run ID");
+        AssertTrue(RunLine.IsEmpty(), 'Old run lines are deleted.');
+        AssertTrue(NewRun.Find(), 'Recent run is kept.');
+        AssertTrue(RunningRun.Find(), 'A running run is never deleted.');
+    end;
+
+    local procedure AddStoreOrder(LocationCode: Code[10]; PlanningDate: Date; Quantity: Decimal; Status: Enum "DP Approval Status KBS")
+    var
+        StoreOrder: Record "DP Store Order KBS";
+    begin
+        StoreOrder.Init();
+        StoreOrder."Location Code" := LocationCode;
+        StoreOrder."Planning Date" := PlanningDate;
+        StoreOrder.Quantity := Quantity;
+        StoreOrder."Approval Status" := Status;
+        StoreOrder.Insert(false);
+    end;
+
+    local procedure AddRun(Status: Enum "DP Run Status KBS"; StartedAt: DateTime) RunRecord: Record "DP Run KBS"
+    begin
+        RunRecord.Init();
+        RunRecord."Run ID" := CreateGuid();
+        RunRecord.Status := Status;
+        RunRecord."Started At" := StartedAt;
+        RunRecord."Sales History Days" := 40;
+        RunRecord."Create Orders" := true;
+        RunRecord.Insert(false);
+    end;
+
+    local procedure AddRunLine(RunRecord: Record "DP Run KBS"; EntryNo: Integer; LocationCode: Code[10]; CategoryCode: Code[10]; DaysInStock: Integer; DaysOfCover: Decimal; Inventory: Decimal; MaximumInventory: Decimal; InventoryAndIncoming: Decimal; Exception: Enum "DP Exception KBS")
+    var
+        RunLine: Record "DP Run Line KBS";
+    begin
+        RunLine.Init();
+        RunLine."Run ID" := RunRecord."Run ID";
+        RunLine."Entry No." := EntryNo;
+        RunLine."Location Code" := LocationCode;
+        RunLine."Category Code" := CategoryCode;
+        RunLine."Days In Stock" := DaysInStock;
+        RunLine."Days of Cover" := DaysOfCover;
+        if DaysOfCover > 0 then
+            RunLine."Daily Sales" := 1;
+        RunLine.Inventory := Inventory;
+        RunLine."Maximum Inventory" := MaximumInventory;
+        RunLine."Incoming Quantity" := InventoryAndIncoming - Inventory;
+        RunLine.Exception := Exception;
+        RunLine.Insert(false);
+    end;
+
+    local procedure AssertEquals(Expected: Decimal; Actual: Decimal; Context: Text)
+    begin
+        if Expected <> Actual then
+            Error('%1 Expected %2, actual %3.', Context, Expected, Actual);
+    end;
+
+    local procedure AssertTrue(Actual: Boolean; Context: Text)
+    begin
+        if not Actual then
+            Error(Context);
+    end;
+
+    var
+        Approval: Codeunit "DP Approval KBS";
+        KPIMgt: Codeunit "DP KPI Mgt KBS";
+}

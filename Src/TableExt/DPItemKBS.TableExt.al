@@ -2,11 +2,12 @@ namespace Knowit.DeliveryPlanner;
 
 using Microsoft.Inventory.Item;
 
-tableextension 62104 "DP Item KBS" extends Item
+tableextension 78904 "DP Item KBS" extends Item
 {
+    AllowInCustomizations = AsReadWrite;
     fields
     {
-        field(62100; "DP Max. Inv. Small KBS"; Decimal)
+        field(78900; "DP Max. Inv. Small KBS"; Decimal)
         {
             Caption = 'Makslager liten butikk';
             DataClassification = CustomerContent;
@@ -14,7 +15,7 @@ tableextension 62104 "DP Item KBS" extends Item
             MinValue = 0;
             ToolTip = 'Angir makslager i basisenheter for butikker i kategorien SMALL. Opprett standardoppsett overfører verdien til lagerføringsenhetene. 0 betyr at lagerføringsenhetene ikke endres.';
         }
-        field(62101; "DP Max. Inv. Medium KBS"; Decimal)
+        field(78901; "DP Max. Inv. Medium KBS"; Decimal)
         {
             Caption = 'Makslager mellomstor butikk';
             DataClassification = CustomerContent;
@@ -22,7 +23,7 @@ tableextension 62104 "DP Item KBS" extends Item
             MinValue = 0;
             ToolTip = 'Angir makslager i basisenheter for butikker i kategorien MEDIUM. Opprett standardoppsett overfører verdien til lagerføringsenhetene. 0 betyr at lagerføringsenhetene ikke endres.';
         }
-        field(62102; "DP Max. Inv. Large KBS"; Decimal)
+        field(78902; "DP Max. Inv. Large KBS"; Decimal)
         {
             Caption = 'Makslager stor butikk';
             DataClassification = CustomerContent;

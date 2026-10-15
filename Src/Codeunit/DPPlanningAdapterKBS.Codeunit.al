@@ -7,7 +7,7 @@ using Microsoft.Inventory.Requisition;
 using Microsoft.Inventory.Tracking;
 using Microsoft.Inventory.Transfer;
 
-codeunit 62103 "DP Planning Adapter KBS"
+codeunit 78903 "DP Planning Adapter KBS"
 {
     EventSubscriberInstance = Manual;
 
@@ -52,13 +52,18 @@ codeunit 62103 "DP Planning Adapter KBS"
         Calculating := false;
     end;
 
-    procedure CarryOutAndRelease()
+    procedure CarryOutAndRelease(var OrdersCreated: Integer; var OrdersAwaitingApproval: Integer)
     var
         RequisitionLine: Record "Requisition Line";
         TransferHeader: Record "Transfer Header";
         MakeOrder: Codeunit "Req. Wksh.-Make Order";
         ReleaseTransfer: Codeunit "Release Transfer Document";
+        Approval: Codeunit "DP Approval KBS";
+        OrderQuantity: Decimal;
+        AverageQuantity: Decimal;
     begin
+        OrdersCreated := 0;
+        OrdersAwaitingApproval := 0;
         SetOwnedLineFilters(RequisitionLine);
         RequisitionLine.SetRange("Accept Action Message", true);
         RequisitionLine.SetRange("Replenishment System", RequisitionLine."Replenishment System"::Transfer);
@@ -77,8 +82,20 @@ codeunit 62103 "DP Planning Adapter KBS"
         TransferHeader.SetRange("DP Run ID KBS", PlannerRun."Run ID");
         if TransferHeader.FindSet(true) then
             repeat
-                ReleaseTransfer.Release(TransferHeader);
-                TransferHeader.TestField(Status, TransferHeader.Status::Released);
+                OrdersCreated += 1;
+                OrderQuantity := Approval.GetOrderQuantity(TransferHeader."No.");
+                AverageQuantity := Approval.GetAverageQuantity(TransferHeader."Transfer-to Code", PlannerSetup."Approval History Orders");
+                if Approval.NeedsApproval(PlannerSetup, OrderQuantity, AverageQuantity) then begin
+                    // The open order still counts as incoming tomorrow, so nothing is ordered twice.
+                    TransferHeader."DP Approval Status KBS" := TransferHeader."DP Approval Status KBS"::"Awaiting Approval";
+                    TransferHeader.Modify(true);
+                    Approval.RegisterOrder(PlannerRun, TransferHeader, OrderQuantity, AverageQuantity, Enum::"DP Approval Status KBS"::"Awaiting Approval");
+                    OrdersAwaitingApproval += 1;
+                end else begin
+                    ReleaseTransfer.Release(TransferHeader);
+                    TransferHeader.TestField(Status, TransferHeader.Status::Released);
+                    Approval.RegisterOrder(PlannerRun, TransferHeader, OrderQuantity, AverageQuantity, Enum::"DP Approval Status KBS"::None);
+                end;
             until TransferHeader.Next() = 0;
         CarryingOut := false;
     end;

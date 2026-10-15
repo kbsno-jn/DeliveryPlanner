@@ -2,7 +2,7 @@ namespace Knowit.DeliveryPlanner;
 
 using Microsoft.Inventory.Location;
 
-page 62102 "DP Assortment KBS"
+page 78902 "DP Assortment KBS"
 {
     Caption = 'DeliveryPlanner-butikksortiment';
     PageType = List;

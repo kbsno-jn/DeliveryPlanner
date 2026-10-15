@@ -2,11 +2,12 @@ namespace Knowit.DeliveryPlanner;
 
 using Microsoft.Inventory.Location;
 
-tableextension 62101 "DP SKU KBS" extends "Stockkeeping Unit"
+tableextension 78901 "DP SKU KBS" extends "Stockkeeping Unit"
 {
+    AllowInCustomizations = AsReadWrite;
     fields
     {
-        field(62100; "DP Enabled KBS"; Boolean)
+        field(78900; "DP Enabled KBS"; Boolean)
         {
             Caption = 'DeliveryPlanner aktivert';
             DataClassification = CustomerContent;

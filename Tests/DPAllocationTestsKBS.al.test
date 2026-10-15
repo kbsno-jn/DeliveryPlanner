@@ -6,7 +6,7 @@ codeunit 70001 "DP Allocation Tests KBS"
     TestPermissions = Disabled;
 
     [Test]
-    procedure AllocatesByWeightFromFirstUnit()
+    procedure AllocatesByRateWhenPositionsAreEqual()
     var
         TempBuffer: Record "DP Allocation Buffer KBS" temporary;
     begin
@@ -18,7 +18,7 @@ codeunit 70001 "DP Allocation Tests KBS"
     end;
 
     [Test]
-    procedure RedistributesSaturatedWeight()
+    procedure RedistributesSaturatedNeed()
     var
         TempBuffer: Record "DP Allocation Buffer KBS" temporary;
     begin
@@ -105,6 +105,65 @@ codeunit 70001 "DP Allocation Tests KBS"
     end;
 
     [Test]
+    procedure FillsStoreThatRunsOutFirst()
+    var
+        TempBuffer: Record "DP Allocation Buffer KBS" temporary;
+    begin
+        // A sells 2 per day and is empty; B sells 6 per day and has 5 days of cover.
+        AddStoreWithCover(TempBuffer, 'A', 100, 1, 1, 0, 2);
+        AddStoreWithCover(TempBuffer, 'B', 100, 3, 1, 30, 6);
+        Allocation.Allocate(TempBuffer, 12);
+        AssertAllocation(TempBuffer, 'A', 10);
+        AssertAllocation(TempBuffer, 'B', 2);
+    end;
+
+    [Test]
+    procedure FillsNegativePositionBeforeOthers()
+    var
+        TempBuffer: Record "DP Allocation Buffer KBS" temporary;
+    begin
+        AddStoreWithCover(TempBuffer, 'A', 20, 1, 1, -5, 1);
+        AddStoreWithCover(TempBuffer, 'B', 20, 1, 1, 10, 1);
+        Allocation.Allocate(TempBuffer, 5);
+        AssertAllocation(TempBuffer, 'A', 5);
+        AssertAllocation(TempBuffer, 'B', 0);
+    end;
+
+    [Test]
+    procedure LevelsDaysOfCoverAcrossStores()
+    var
+        TempBuffer: Record "DP Allocation Buffer KBS" temporary;
+    begin
+        // Level 4 days: A needs 4*2-2 = 6, B needs 4*1-0 = 4.
+        AddStoreWithCover(TempBuffer, 'A', 50, 1, 1, 2, 2);
+        AddStoreWithCover(TempBuffer, 'B', 50, 1, 1, 0, 1);
+        Allocation.Allocate(TempBuffer, 10);
+        AssertAllocation(TempBuffer, 'A', 6);
+        AssertAllocation(TempBuffer, 'B', 4);
+    end;
+
+    [Test]
+    procedure NeverExceedsNeedWhenLevelling()
+    var
+        TempBuffer: Record "DP Allocation Buffer KBS" temporary;
+    begin
+        AddStoreWithCover(TempBuffer, 'A', 3, 1, 1, 0, 5);
+        AddStoreWithCover(TempBuffer, 'B', 50, 1, 1, 0, 1);
+        Allocation.Allocate(TempBuffer, 10);
+        AssertAllocation(TempBuffer, 'A', 3);
+        AssertAllocation(TempBuffer, 'B', 7);
+    end;
+
+    [Test]
+    procedure RejectsZeroRateWithNeed()
+    var
+        TempBuffer: Record "DP Allocation Buffer KBS" temporary;
+    begin
+        AddStoreWithCover(TempBuffer, 'A', 10, 1, 1, 0, 0);
+        asserterror Allocation.Allocate(TempBuffer, 5);
+    end;
+
+    [Test]
     procedure RejectsZeroIncrement()
     var
         TempBuffer: Record "DP Allocation Buffer KBS" temporary;
@@ -113,13 +172,21 @@ codeunit 70001 "DP Allocation Tests KBS"
         asserterror Allocation.Allocate(TempBuffer, 10);
     end;
 
+    // With equal positions, levelling days of cover is proportional to the daily rate.
     local procedure AddStore(var TempBuffer: Record "DP Allocation Buffer KBS" temporary; LocationCode: Code[10]; Need: Decimal; Weight: Decimal; Increment: Decimal)
+    begin
+        AddStoreWithCover(TempBuffer, LocationCode, Need, Weight, Increment, 0, Weight);
+    end;
+
+    local procedure AddStoreWithCover(var TempBuffer: Record "DP Allocation Buffer KBS" temporary; LocationCode: Code[10]; Need: Decimal; Weight: Decimal; Increment: Decimal; Position: Decimal; DailyRate: Decimal)
     begin
         TempBuffer.Init();
         TempBuffer."Location Code" := LocationCode;
         TempBuffer.Need := Need;
         TempBuffer.Weight := Weight;
         TempBuffer.Increment := Increment;
+        TempBuffer.Position := Position;
+        TempBuffer."Daily Rate" := DailyRate;
         TempBuffer.Insert();
     end;
 

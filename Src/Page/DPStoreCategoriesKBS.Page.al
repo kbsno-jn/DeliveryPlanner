@@ -1,6 +1,6 @@
 namespace Knowit.DeliveryPlanner;
 
-page 62101 "DP Store Categories KBS"
+page 78901 "DP Store Categories KBS"
 {
     Caption = 'DeliveryPlanner-butikkategorier';
     PageType = List;

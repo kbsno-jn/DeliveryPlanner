@@ -2,7 +2,7 @@ namespace Knowit.DeliveryPlanner;
 
 using Microsoft.Inventory.Item;
 
-pageextension 62104 "DP Item Card KBS" extends "Item Card"
+pageextension 78904 "DP Item Card KBS" extends "Item Card"
 {
     layout
     {

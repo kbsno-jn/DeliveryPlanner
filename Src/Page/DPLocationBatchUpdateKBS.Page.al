@@ -1,6 +1,6 @@
 namespace Knowit.DeliveryPlanner;
 
-page 62106 "DP Location Batch Update KBS"
+page 78906 "DP Location Batch Update KBS"
 {
     Caption = 'Angi DeliveryPlanner for valgte lokasjoner';
     PageType = StandardDialog;

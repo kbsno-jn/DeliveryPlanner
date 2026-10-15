@@ -3,8 +3,9 @@ namespace Knowit.DeliveryPlanner;
 using Microsoft.Inventory.Item;
 using Microsoft.Inventory.Location;
 
-table 62104 "DP Proposal Log KBS"
+table 78904 "DP Proposal Log KBS"
 {
+    AllowInCustomizations = AsReadOnly;
     Caption = 'DeliveryPlanner-forslagslogg';
     DataClassification = CustomerContent;
     DataCaptionFields = "Item No.", "Variant Code", "Location Code", "Due Date";

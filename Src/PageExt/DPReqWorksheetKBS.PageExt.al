@@ -2,7 +2,7 @@ namespace Knowit.DeliveryPlanner;
 
 using Microsoft.Inventory.Requisition;
 
-pageextension 62102 "DP Req Worksheet KBS" extends "Req. Worksheet"
+pageextension 78902 "DP Req Worksheet KBS" extends "Req. Worksheet"
 {
     layout
     {

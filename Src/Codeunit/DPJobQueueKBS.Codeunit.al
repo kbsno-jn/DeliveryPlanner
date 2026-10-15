@@ -2,7 +2,7 @@ namespace Knowit.DeliveryPlanner;
 
 using System.Threading;
 
-codeunit 62102 "DP Job Queue KBS"
+codeunit 78902 "DP Job Queue KBS"
 {
     TableNo = "Job Queue Entry";
 

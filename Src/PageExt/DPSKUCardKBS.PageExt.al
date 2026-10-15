@@ -2,7 +2,7 @@ namespace Knowit.DeliveryPlanner;
 
 using Microsoft.Inventory.Location;
 
-pageextension 62101 "DP SKU Card KBS" extends "Stockkeeping Unit Card"
+pageextension 78901 "DP SKU Card KBS" extends "Stockkeeping Unit Card"
 {
     layout
     {

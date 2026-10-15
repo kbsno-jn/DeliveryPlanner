@@ -1,0 +1,166 @@
+namespace Knowit.DeliveryPlanner;
+
+using Microsoft.Inventory.Item;
+using Microsoft.Inventory.Location;
+using Microsoft.Inventory.Transfer;
+
+codeunit 70007 "DP Exception Tests KBS"
+{
+    Subtype = Test;
+    TestPermissions = Disabled;
+
+    [Test]
+    procedure EmptyStoreWithUnmetNeedIsMostSevere()
+    var
+        RunLine: Record "DP Run Line KBS";
+    begin
+        RunLine.Inventory := 0;
+        RunLine."Unmet Quantity" := 4;
+        RunLine.UpdateException();
+        AssertTrue(RunLine.Exception = RunLine.Exception::"Out of Stock Unmet Need", 'Empty and unmet.');
+    end;
+
+    [Test]
+    procedure ClassifiesSingleExceptions()
+    var
+        RunLine: Record "DP Run Line KBS";
+    begin
+        RunLine.Inventory := 5;
+        RunLine."Unmet Quantity" := 2;
+        RunLine.UpdateException();
+        AssertTrue(RunLine.Exception = RunLine.Exception::"Unmet Need", 'Unmet need.');
+
+        RunLine."Unmet Quantity" := 0;
+        RunLine.Inventory := -1;
+        RunLine.UpdateException();
+        AssertTrue(RunLine.Exception = RunLine.Exception::"Out of Stock", 'Negative stock counts as empty.');
+
+        RunLine.Inventory := 90;
+        RunLine."Incoming Quantity" := 20;
+        RunLine."Maximum Inventory" := 100;
+        RunLine.UpdateException();
+        AssertTrue(RunLine.Exception = RunLine.Exception::"Over Maximum", 'Inventory and incoming above maximum.');
+
+        RunLine."Incoming Quantity" := 10;
+        RunLine.UpdateException();
+        AssertTrue(RunLine.Exception = RunLine.Exception::None, 'Exactly at maximum is not an exception.');
+    end;
+
+    [Test]
+    procedure MissingSetupIsKept()
+    var
+        RunLine: Record "DP Run Line KBS";
+    begin
+        RunLine.Exception := RunLine.Exception::"Missing Setup";
+        RunLine.Inventory := 50;
+        RunLine.UpdateException();
+        AssertTrue(RunLine.Exception = RunLine.Exception::"Missing Setup", 'Setup problems are not overwritten.');
+    end;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure ValidSetupHasNoProblem()
+    var
+        Setup: Record "DP Setup KBS";
+        SKU: Record "Stockkeeping Unit";
+        Store: Record Location;
+    begin
+        CreateFixture(Setup, SKU);
+        Store.Get('DPEXST');
+        AssertTrue(SetupCheck.GetStoreProblem(Setup, Store) = '', 'Valid store.');
+        AssertTrue(SetupCheck.GetSKUProblem(Setup, SKU) = '', 'Valid SKU.');
+    end;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure ReportsSKUProblems()
+    var
+        Setup: Record "DP Setup KBS";
+        SKU: Record "Stockkeeping Unit";
+    begin
+        CreateFixture(Setup, SKU);
+        SKU."Maximum Inventory" := 0;
+        AssertTrue(StrPos(SetupCheck.GetSKUProblem(Setup, SKU), 'Makslager') > 0, 'Zero maximum.');
+        SKU."Maximum Inventory" := 10;
+        SKU."Safety Stock Quantity" := 11;
+        AssertTrue(StrPos(SetupCheck.GetSKUProblem(Setup, SKU), 'Sikkerhetslager') > 0, 'Safety stock above maximum.');
+        SKU."Safety Stock Quantity" := 0;
+        SKU."Transfer-from Code" := 'OTHER';
+        AssertTrue(StrPos(SetupCheck.GetSKUProblem(Setup, SKU), 'Overfør fra-kode') > 0, 'Wrong transfer source.');
+    end;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure ReportsStoreProblems()
+    var
+        Setup: Record "DP Setup KBS";
+        SKU: Record "Stockkeeping Unit";
+        Store: Record Location;
+        Route: Record "Transfer Route";
+    begin
+        CreateFixture(Setup, SKU);
+        Store.Get('DPEXST');
+        Route.Get('DPEXHUB', 'DPEXST');
+        Route.Delete(false);
+        AssertTrue(StrPos(SetupCheck.GetStoreProblem(Setup, Store), 'Overføringsrute') > 0, 'Missing route.');
+        Store."DP Category Code KBS" := '';
+        AssertTrue(StrPos(SetupCheck.GetStoreProblem(Setup, Store), 'butikkategori') > 0, 'Missing category.');
+    end;
+
+    local procedure CreateFixture(var Setup: Record "DP Setup KBS"; var SKU: Record "Stockkeeping Unit")
+    var
+        Item: Record Item;
+        Category: Record "DP Store Category KBS";
+        Route: Record "Transfer Route";
+    begin
+        Category.Init();
+        Category.Code := 'DPEXCAT';
+        Category."Coverage Days" := 7;
+        Category."Allocation Weight" := 1;
+        Category.Insert(false);
+        CreateLocation('DPEXHUB', false, '');
+        CreateLocation('DPEXTR', true, '');
+        CreateLocation('DPEXST', false, Category.Code);
+        Route.Init();
+        Route."Transfer-from Code" := 'DPEXHUB';
+        Route."Transfer-to Code" := 'DPEXST';
+        Route."In-Transit Code" := 'DPEXTR';
+        Route.Insert(false);
+        Item.Init();
+        Item."No." := 'DPEXITEM';
+        Item.Type := Item.Type::Inventory;
+        Item.Insert(false);
+        SKU.Init();
+        SKU."Location Code" := 'DPEXST';
+        SKU."Item No." := Item."No.";
+        SKU."Replenishment System" := SKU."Replenishment System"::Transfer;
+        SKU."Transfer-from Code" := 'DPEXHUB';
+        SKU."Maximum Inventory" := 10;
+        SKU."DP Enabled KBS" := true;
+        SKU.Insert(false);
+        Setup."Hub Location Code" := 'DPEXHUB';
+        Setup."Worksheet Template Name" := 'DPEXTPL';
+        Setup."Worksheet Batch Name" := 'DPEXBAT';
+    end;
+
+    local procedure CreateLocation(LocationCode: Code[10]; InTransit: Boolean; CategoryCode: Code[10])
+    var
+        Location: Record Location;
+    begin
+        Location.Init();
+        Location.Code := LocationCode;
+        Location."Use As In-Transit" := InTransit;
+        Location."DP Enabled KBS" := CategoryCode <> '';
+        Location."DP Category Code KBS" := CategoryCode;
+        Location.Insert(false);
+    end;
+
+    local procedure AssertTrue(Actual: Boolean; Context: Text)
+    begin
+        if not Actual then
+            Error(Context);
+    end;
+
+    var
+        SetupCheck: Codeunit "DP Setup Check KBS";
+}
