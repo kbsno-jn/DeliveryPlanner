@@ -1,0 +1,9 @@
+model Model
+	culture: nb-NO
+	defaultPowerBIDataSourceVersion: powerBI_V3
+	sourceQueryCulture: nb-NO
+	dataAccessOptions
+		legacyRedirects
+		returnErrorValuesAsNull
+
+annotation PBI_QueryOrder = ["Tenant","Miljo","FirmaId","RangeStart","RangeEnd","Kilde_DP","Kilde_BC","GyldigeKjoringer","Beregning","Butikkordre","Kjøring","Butikk","Kategori","Vare","Avvik","Dato","_Mål"]

@@ -1,0 +1,60 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.13.0/schema.json",
+  "name": "g_kort3",
+  "position": {
+    "x": 640,
+    "y": 80,
+    "z": 30000,
+    "width": 305,
+    "height": 110,
+    "tabOrder": 30000
+  },
+  "visual": {
+    "visualType": "card",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Mål"
+                    }
+                  },
+                  "Property": "Nattjobb OK %"
+                }
+              },
+              "queryRef": "_Mål.Nattjobb OK %",
+              "nativeQueryRef": "Nattjobb OK %"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true,
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Nattjobb OK'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

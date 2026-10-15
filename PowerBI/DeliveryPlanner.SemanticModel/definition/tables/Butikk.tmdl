@@ -1,0 +1,60 @@
+table Butikk
+
+	column Butikkode
+		dataType: string
+		summarizeBy: none
+		sourceColumn: code
+
+		annotation SummarizationSetBy = User
+
+	column Butikk
+		dataType: string
+		summarizeBy: none
+		sourceColumn: name
+
+		annotation SummarizationSetBy = User
+
+	column Aktivert
+		dataType: boolean
+		summarizeBy: none
+		sourceColumn: deliveryPlannerEnabled
+
+		annotation SummarizationSetBy = User
+
+	column Kategorikode
+		dataType: string
+		summarizeBy: none
+		sourceColumn: categoryCode
+
+		annotation SummarizationSetBy = User
+
+	column Leveringsdager
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Leveringsdager
+
+		annotation SummarizationSetBy = User
+
+	partition Butikk = m
+		mode: import
+		source =
+				let
+				    Butikker = Kilde_DP("deliveryStores"),
+				    MedDager = Table.AddColumn(Butikker, "Leveringsdager", each
+				        let
+				            Dager = List.Select({
+				                if [deliveryMonday] then "Man" else null,
+				                if [deliveryTuesday] then "Tir" else null,
+				                if [deliveryWednesday] then "Ons" else null,
+				                if [deliveryThursday] then "Tor" else null,
+				                if [deliveryFriday] then "Fre" else null,
+				                if [deliverySaturday] then "Lør" else null,
+				                if [deliverySunday] then "Søn" else null}, each _ <> null)
+				        in
+				            if List.IsEmpty(Dager) then "Hver natt" else Text.Combine(Dager, ", "), type text),
+				    Valgt = Table.SelectColumns(MedDager, {"code", "name", "deliveryPlannerEnabled", "categoryCode", "Leveringsdager"}),
+				    Typer = Table.TransformColumnTypes(Valgt, {{"code", type text}, {"name", type text}, {"deliveryPlannerEnabled", type logical}, {"categoryCode", type text}, {"Leveringsdager", type text}})
+				in
+				    Typer
+
+	annotation PBI_ResultType = Table

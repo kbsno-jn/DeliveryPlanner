@@ -1,0 +1,60 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.13.0/schema.json",
+  "name": "l_kort2",
+  "position": {
+    "x": 320,
+    "y": 80,
+    "z": 5000,
+    "width": 305,
+    "height": 110,
+    "tabOrder": 5000
+  },
+  "visual": {
+    "visualType": "card",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Mål"
+                    }
+                  },
+                  "Property": "Endring tilgjengelighet (pp)"
+                }
+              },
+              "queryRef": "_Mål.Endring tilgjengelighet (pp)",
+              "nativeQueryRef": "Endring tilgjengelighet (pp)"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true,
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Endring mot forrige 28 dager (pp)'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

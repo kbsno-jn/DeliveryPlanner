@@ -1,0 +1,228 @@
+table Beregning
+
+	column Planleggingsdato
+		dataType: dateTime
+		formatString: dd.mm.yyyy
+		summarizeBy: none
+		sourceColumn: planningDate
+
+		annotation SummarizationSetBy = User
+
+	column Varenr
+		dataType: string
+		summarizeBy: none
+		sourceColumn: itemNumber
+
+		annotation SummarizationSetBy = User
+
+	column Variant
+		dataType: string
+		summarizeBy: none
+		sourceColumn: variantCode
+
+		annotation SummarizationSetBy = User
+
+	column Butikkode
+		dataType: string
+		summarizeBy: none
+		sourceColumn: locationCode
+
+		annotation SummarizationSetBy = User
+
+	column Kategorikode
+		dataType: string
+		isHidden
+		summarizeBy: none
+		sourceColumn: categoryCode
+
+		annotation SummarizationSetBy = User
+
+	column 'Solgt antall'
+		dataType: double
+		formatString: #,0.##
+		summarizeBy: sum
+		sourceColumn: soldQuantity
+
+		annotation SummarizationSetBy = User
+
+	column 'Dager på lager'
+		dataType: int64
+		formatString: 0
+		summarizeBy: sum
+		sourceColumn: daysInStock
+
+		annotation SummarizationSetBy = User
+
+	column 'Solgt i går'
+		dataType: boolean
+		summarizeBy: none
+		sourceColumn: soldLastDay
+
+		annotation SummarizationSetBy = User
+
+	column 'Daglig salg'
+		dataType: double
+		formatString: #,0.00
+		summarizeBy: average
+		sourceColumn: dailySales
+
+		annotation SummarizationSetBy = User
+
+	column 'Dager med dekning'
+		dataType: double
+		formatString: #,0.0
+		summarizeBy: average
+		sourceColumn: daysOfCover
+
+		annotation SummarizationSetBy = User
+
+	column 'Leveres nå'
+		dataType: boolean
+		summarizeBy: none
+		sourceColumn: shipsNow
+
+		annotation SummarizationSetBy = User
+
+	column Mottaksdato
+		dataType: dateTime
+		formatString: dd.mm.yyyy
+		summarizeBy: none
+		sourceColumn: receiptDate
+
+		annotation SummarizationSetBy = User
+
+	column 'Neste mottaksdato'
+		dataType: dateTime
+		formatString: dd.mm.yyyy
+		summarizeBy: none
+		sourceColumn: nextReceiptDate
+
+		annotation SummarizationSetBy = User
+
+	column Dekningsdager
+		dataType: int64
+		formatString: 0
+		summarizeBy: none
+		sourceColumn: coverageDays
+
+		annotation SummarizationSetBy = User
+
+	column 'Lagermål'
+		dataType: double
+		formatString: #,0.##
+		summarizeBy: sum
+		sourceColumn: targetQuantity
+
+		annotation SummarizationSetBy = User
+
+	column Makslager
+		dataType: double
+		formatString: #,0.##
+		summarizeBy: sum
+		sourceColumn: maximumInventory
+
+		annotation SummarizationSetBy = User
+
+	column Beholdning
+		dataType: double
+		formatString: #,0.##
+		summarizeBy: sum
+		sourceColumn: inventory
+
+		annotation SummarizationSetBy = User
+
+	column 'Inngående'
+		dataType: double
+		formatString: #,0.##
+		summarizeBy: sum
+		sourceColumn: incomingQuantity
+
+		annotation SummarizationSetBy = User
+
+	column 'Utgående'
+		dataType: double
+		formatString: #,0.##
+		summarizeBy: sum
+		sourceColumn: outgoingQuantity
+
+		annotation SummarizationSetBy = User
+
+	column 'Ledig kapasitet'
+		dataType: double
+		formatString: #,0.##
+		summarizeBy: sum
+		sourceColumn: capacityQuantity
+
+		annotation SummarizationSetBy = User
+
+	column Behov
+		dataType: double
+		formatString: #,0.##
+		summarizeBy: sum
+		sourceColumn: needQuantity
+
+		annotation SummarizationSetBy = User
+
+	column Standardforslag
+		dataType: double
+		formatString: #,0.##
+		summarizeBy: sum
+		sourceColumn: suggestedQuantity
+
+		annotation SummarizationSetBy = User
+
+	column Tildelt
+		dataType: double
+		formatString: #,0.##
+		summarizeBy: sum
+		sourceColumn: allocatedQuantity
+
+		annotation SummarizationSetBy = User
+
+	column Udekket
+		dataType: double
+		formatString: #,0.##
+		summarizeBy: sum
+		sourceColumn: unmetQuantity
+
+		annotation SummarizationSetBy = User
+
+	column Avvikskode
+		dataType: string
+		isHidden
+		summarizeBy: none
+		sourceColumn: exception
+
+		annotation SummarizationSetBy = User
+
+	column Begrunnelse
+		dataType: string
+		summarizeBy: none
+		sourceColumn: reason
+
+		annotation SummarizationSetBy = User
+
+	column Analysedager
+		dataType: int64
+		formatString: 0
+		isHidden
+		summarizeBy: none
+		sourceColumn: salesHistoryDays
+
+		annotation SummarizationSetBy = User
+
+	partition Beregning = m
+		mode: import
+		source =
+				let
+				    Linjer = Kilde_DP("deliveryRunLines"),
+				    // Filter on the planning date first, so incremental refresh can send the filter to the API.
+				    Periode = Table.SelectRows(Linjer, each [planningDate] >= Date.From(RangeStart) and [planningDate] < Date.From(RangeEnd)),
+				    Gyldige = Table.NestedJoin(Periode, {"runId"}, GyldigeKjoringer, {"runId"}, "Kjøring", JoinKind.Inner),
+				    MedPeriode = Table.ExpandTableColumn(Gyldige, "Kjøring", {"salesHistoryDays"}),
+				    Valgt = Table.SelectColumns(MedPeriode, {"planningDate", "itemNumber", "variantCode", "locationCode", "categoryCode", "soldQuantity", "daysInStock", "soldLastDay", "dailySales", "daysOfCover", "shipsNow", "receiptDate", "nextReceiptDate", "coverageDays", "targetQuantity", "maximumInventory", "inventory", "incomingQuantity", "outgoingQuantity", "capacityQuantity", "needQuantity", "suggestedQuantity", "allocatedQuantity", "unmetQuantity", "exception", "reason", "salesHistoryDays"}),
+				    Typer = Table.TransformColumnTypes(Valgt, {{"planningDate", type date}, {"itemNumber", type text}, {"variantCode", type text}, {"locationCode", type text}, {"categoryCode", type text}, {"soldQuantity", type number}, {"daysInStock", Int64.Type}, {"soldLastDay", type logical}, {"dailySales", type number}, {"daysOfCover", type number}, {"shipsNow", type logical}, {"receiptDate", type date}, {"nextReceiptDate", type date}, {"coverageDays", Int64.Type}, {"targetQuantity", type number}, {"maximumInventory", type number}, {"inventory", type number}, {"incomingQuantity", type number}, {"outgoingQuantity", type number}, {"capacityQuantity", type number}, {"needQuantity", type number}, {"suggestedQuantity", type number}, {"allocatedQuantity", type number}, {"unmetQuantity", type number}, {"exception", type text}, {"reason", type text}, {"salesHistoryDays", Int64.Type}})
+				in
+				    Typer
+
+	annotation PBI_ResultType = Table

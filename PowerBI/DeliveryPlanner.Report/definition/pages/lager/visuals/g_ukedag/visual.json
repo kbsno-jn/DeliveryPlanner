@@ -1,0 +1,96 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.13.0/schema.json",
+  "name": "g_ukedag",
+  "position": {
+    "x": 0,
+    "y": 200,
+    "z": 32000,
+    "width": 630,
+    "height": 260,
+    "tabOrder": 32000
+  },
+  "visual": {
+    "visualType": "columnChart",
+    "query": {
+      "queryState": {
+        "Category": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Dato"
+                    }
+                  },
+                  "Property": "Ukedag"
+                }
+              },
+              "queryRef": "Dato.Ukedag",
+              "nativeQueryRef": "Ukedag"
+            }
+          ]
+        },
+        "Y": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Mål"
+                    }
+                  },
+                  "Property": "Enheter sendt"
+                }
+              },
+              "queryRef": "_Mål.Enheter sendt",
+              "nativeQueryRef": "Enheter sendt"
+            }
+          ]
+        },
+        "Series": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Butikk"
+                    }
+                  },
+                  "Property": "Butikk"
+                }
+              },
+              "queryRef": "Butikk.Butikk",
+              "nativeQueryRef": "Butikk"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true,
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Enheter sendt per ukedag og butikk'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

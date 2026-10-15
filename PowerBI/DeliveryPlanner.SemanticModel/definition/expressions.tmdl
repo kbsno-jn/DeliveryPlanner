@@ -1,0 +1,43 @@
+expression Tenant = "00000000-0000-0000-0000-000000000000" meta [IsParameterQuery = true, Type = "Text", IsParameterQueryRequired = true]
+	annotation PBI_ResultType = Text
+
+expression Miljo = "Production" meta [IsParameterQuery = true, Type = "Text", IsParameterQueryRequired = true]
+	annotation PBI_ResultType = Text
+
+expression FirmaId = "00000000-0000-0000-0000-000000000000" meta [IsParameterQuery = true, Type = "Text", IsParameterQueryRequired = true]
+	annotation PBI_ResultType = Text
+
+expression RangeStart = #datetime(2025, 1, 1, 0, 0, 0) meta [IsParameterQuery = true, Type = "DateTime", IsParameterQueryRequired = true]
+	annotation PBI_ResultType = DateTime
+
+expression RangeEnd = #datetime(2035, 1, 1, 0, 0, 0) meta [IsParameterQuery = true, Type = "DateTime", IsParameterQueryRequired = true]
+	annotation PBI_ResultType = DateTime
+
+expression Kilde_DP =
+		(Entitet as text) as table =>
+		    OData.Feed(
+		        "https://api.businesscentral.dynamics.com/v2.0/" & Tenant & "/" & Miljo
+		            & "/api/knowit/deliveryPlanner/v1.0/companies(" & FirmaId & ")/" & Entitet,
+		        null,
+		        [Implementation = "2.0"])
+	annotation PBI_ResultType = Function
+
+expression Kilde_BC =
+		(Entitet as text) as table =>
+		    OData.Feed(
+		        "https://api.businesscentral.dynamics.com/v2.0/" & Tenant & "/" & Miljo
+		            & "/api/v2.0/companies(" & FirmaId & ")/" & Entitet,
+		        null,
+		        [Implementation = "2.0"])
+	annotation PBI_ResultType = Function
+
+expression GyldigeKjoringer =
+		let
+		    Kjøringer = Kilde_DP("deliveryRuns"),
+		    Fullført = Table.SelectRows(Kjøringer, each [status] = "Completed" and [createOrders] = true),
+		    SistePerDato = Table.Group(Fullført, {"planningDate"}, {{"Siste", each Table.Max(_, "startedAt"), type record}}),
+		    Utvidet = Table.ExpandRecordColumn(SistePerDato, "Siste", {"runId", "salesHistoryDays"}),
+		    Valgt = Table.SelectColumns(Utvidet, {"runId", "salesHistoryDays"})
+		in
+		    Valgt
+	annotation PBI_ResultType = Table

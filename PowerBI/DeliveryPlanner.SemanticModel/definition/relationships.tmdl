@@ -1,0 +1,31 @@
+relationship rel01_Beregning_Dato
+	fromColumn: Beregning.Planleggingsdato
+	toColumn: Dato.Dato
+
+relationship rel02_Beregning_Butikk
+	fromColumn: Beregning.Butikkode
+	toColumn: Butikk.Butikkode
+
+relationship rel03_Beregning_Vare
+	fromColumn: Beregning.Varenr
+	toColumn: Vare.Varenr
+
+relationship rel04_Beregning_Avvik
+	fromColumn: Beregning.Avvikskode
+	toColumn: Avvik.Avvikskode
+
+relationship rel05_Butikkordre_Dato
+	fromColumn: Butikkordre.Planleggingsdato
+	toColumn: Dato.Dato
+
+relationship rel06_Butikkordre_Butikk
+	fromColumn: Butikkordre.Butikkode
+	toColumn: Butikk.Butikkode
+
+relationship rel07_Kjoring_Dato
+	fromColumn: 'Kjøring'.Planleggingsdato
+	toColumn: Dato.Dato
+
+relationship rel08_Butikk_Kategori
+	fromColumn: Butikk.Kategorikode
+	toColumn: Kategori.Kategorikode

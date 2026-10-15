@@ -35,9 +35,10 @@
 | Rettighetssett | For |
 |---|---|
 | **DP ADMIN KBS** (DeliveryPlanner - Administrasjon) | De som vedlikeholder oppsett, sortiment og butikker |
+| **DP API KBS** (DeliveryPlanner - Rapportering) | Power BI-kontoen. Bare lesetilgang via API |
 | **DP RUN KBS** (DeliveryPlanner - Kjøring) | Jobbkøbrukeren og de som følger opp: kjøringslogg, avvik, nøkkeltall og butikkordrer |
 
-- Begge settene dekker bare DeliveryPlanner-objekter. Brukerne trenger i tillegg standard tilganger til vare, lagerføringsenhet, lokasjon, rute, speditør, rekvisisjonskladd, planlegging, overføringsordre, reservasjoner og e-post.
+- Settene dekker bare DeliveryPlanner-objekter (DP API KBS gir også lesetilgang til lokasjoner). Brukerne trenger i tillegg standard tilganger til vare, lagerføringsenhet, lokasjon, rute, speditør, rekvisisjonskladd, planlegging, overføringsordre, reservasjoner og e-post.
 - DP RUN KBS gir ikke tilgang til oppsettssiden, butikksortimentet eller dialogen for masseoppdatering av lokasjoner.
 
 ## Daglig oppfølging

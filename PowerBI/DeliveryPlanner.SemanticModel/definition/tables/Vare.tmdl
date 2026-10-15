@@ -1,0 +1,49 @@
+table Vare
+
+	column Varenr
+		dataType: string
+		summarizeBy: none
+		sourceColumn: number
+
+		annotation SummarizationSetBy = User
+
+	column Varenavn
+		dataType: string
+		summarizeBy: none
+		sourceColumn: displayName
+
+		annotation SummarizationSetBy = User
+
+	column Varekategori
+		dataType: string
+		summarizeBy: none
+		sourceColumn: itemCategoryCode
+
+		annotation SummarizationSetBy = User
+
+	column Enhet
+		dataType: string
+		summarizeBy: none
+		sourceColumn: baseUnitOfMeasureCode
+
+		annotation SummarizationSetBy = User
+
+	column Enhetskost
+		dataType: double
+		formatString: #,0.00
+		summarizeBy: none
+		sourceColumn: unitCost
+
+		annotation SummarizationSetBy = User
+
+	partition Vare = m
+		mode: import
+		source =
+				let
+				    Varer = Kilde_BC("items"),
+				    Valgt = Table.SelectColumns(Varer, {"number", "displayName", "itemCategoryCode", "baseUnitOfMeasureCode", "unitCost"}),
+				    Typer = Table.TransformColumnTypes(Valgt, {{"number", type text}, {"displayName", type text}, {"itemCategoryCode", type text}, {"baseUnitOfMeasureCode", type text}, {"unitCost", type number}})
+				in
+				    Typer
+
+	annotation PBI_ResultType = Table

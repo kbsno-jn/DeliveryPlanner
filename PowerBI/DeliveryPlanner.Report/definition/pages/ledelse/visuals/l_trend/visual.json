@@ -1,0 +1,92 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.13.0/schema.json",
+  "name": "l_trend",
+  "position": {
+    "x": 0,
+    "y": 200,
+    "z": 8000,
+    "width": 630,
+    "height": 260,
+    "tabOrder": 8000
+  },
+  "visual": {
+    "visualType": "lineChart",
+    "query": {
+      "queryState": {
+        "Category": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Dato"
+                    }
+                  },
+                  "Property": "Ukestart"
+                }
+              },
+              "queryRef": "Dato.Ukestart",
+              "nativeQueryRef": "Ukestart"
+            }
+          ]
+        },
+        "Y": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Mål"
+                    }
+                  },
+                  "Property": "Tilgjengelighet %"
+                }
+              },
+              "queryRef": "_Mål.Tilgjengelighet %",
+              "nativeQueryRef": "Tilgjengelighet %"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Mål"
+                    }
+                  },
+                  "Property": "Mål tilgjengelighet"
+                }
+              },
+              "queryRef": "_Mål.Mål tilgjengelighet",
+              "nativeQueryRef": "Mål tilgjengelighet"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true,
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Tilgjengelighet per uke'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

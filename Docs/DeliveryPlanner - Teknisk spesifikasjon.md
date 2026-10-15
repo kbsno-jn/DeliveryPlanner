@@ -103,6 +103,11 @@ Den dedikerte kladden er skrivebeskyttet. Linjene kan bare endres gjennom Delive
 | Page | 78908 | DP KPI Activities KBS | – | Kø-del (CardPart) for rollesenteret |
 | Page | 78909 | DP KPIs KBS | – | Nøkkeltall per butikk og kategori |
 | Page | 78910 | DP Store Orders KBS | – | Butikkordrer med snitt og godkjenningsstatus |
+| Page (API) | 78911 | DP API Runs KBS | – | `knowit/deliveryPlanner/v1.0/deliveryRuns` |
+| Page (API) | 78912 | DP API Run Lines KBS | – | `knowit/deliveryPlanner/v1.0/deliveryRunLines` |
+| Page (API) | 78913 | DP API Store Orders KBS | – | `knowit/deliveryPlanner/v1.0/deliveryStoreOrders` |
+| Page (API) | 78914 | DP API Stores KBS | – | `knowit/deliveryPlanner/v1.0/deliveryStores` (Location, ikke transitt) |
+| Page (API) | 78915 | DP API Store Categories KBS | – | `knowit/deliveryPlanner/v1.0/deliveryStoreCategories` |
 | PageExtension | 78900 | DP Location Card KBS | Location Card | Fanen DeliveryPlanner med leveringsdager, og sortimentshandling |
 | PageExtension | 78901 | DP SKU Card KBS | Stockkeeping Unit Card | Aktiveringsfelt |
 | PageExtension | 78902 | DP Req Worksheet KBS | Req. Worksheet | Skrivebeskyttelse, DP-felt og -handlinger |
@@ -131,6 +136,7 @@ Den dedikerte kladden er skrivebeskyttet. Linjene kan bare endres gjennom Delive
 | EnumExtension | 78900 | DP Email Scenario KBS | Email Scenario | E-postscenarioet DeliveryPlanner |
 | PermissionSet | 78907 | DP ADMIN KBS | – | Full tilgang til DeliveryPlanner |
 | PermissionSet | 78908 | DP RUN KBS | – | Kjøring og oppfølging |
+| PermissionSet | 78909 | DP API KBS | – | Lesetilgang for Power BI og andre API-klienter |
 
 Testappen (DeliveryPlanner Tests, 70000–70049) ligger i `Tests/` med filendelse `.al.test`:
 
@@ -239,6 +245,7 @@ AllowInCustomizations = AsReadOnly. Nøkler: Run ID, Entry No. (primær), og ByE
 | Exception | Enum DP Exception KBS | None | Viktigste avvik for linjen |
 | Reason | Text[250] | – | Begrunnelse for begrensning, utelatelse eller oppsettsfeil |
 | Item Description | Text[100] (FlowField) | – | Varebeskrivelse |
+| Planning Date | Date | – | Kjøringens planleggingsdato. Nøkkel ByPlanningDate (Planning Date, Location Code, Item No.) for filtrering i API |
 
 Prosedyren `UpdateException` setter avviket i prioritert rekkefølge: Mangler oppsett beholdes. Deretter kommer Tom – udekket behov (beholdning ≤ 0 og udekket > 0), Udekket behov, Tom i butikk og Over makslager (beholdning + inngående > makslager > 0). «Venter på godkjenning» settes etter ordreopprettelse på linjer uten annet avvik.
 
@@ -514,6 +521,7 @@ Nattjobben opprettes med jobbkøkategori DELIVERY, alle ukedager, maks 3 forsøk
 | Permission set | Innhold | Rolle |
 |---|---|---|
 | DP ADMIN KBS («DeliveryPlanner - Administrasjon») | RIMD på alle DP-tabeller. Kjøretilgang til alle DP-sider, codeunits og query | Innkjøps-/logistikkansvarlig som vedlikeholder oppsett og sortiment |
+| DP API KBS («DeliveryPlanner - Rapportering») | Les på kjøring, beregningslinjer, butikkordrer, kategorier og Location. Kjøretilgang til de fem API-sidene | Power BI-kontoen. Trenger i tillegg lesetilgang til varer, for eksempel D365 READ |
 | DP RUN KBS («DeliveryPlanner - Kjøring») | Les på oppsett og kategorier. RIMD på kjøring, beregningslinjer, forslagslogg, butikkordrer og buffere. Kjøretilgang til kjøringslogg, beregningsgrunnlag, forslag, avvik, nøkkeltall, kø-del, butikkordrer, alle DP-codeunits og query | Jobbkøbrukeren og brukere som kjører og følger opp |
 
 Begge settene gir bare tilgang til DeliveryPlanner-objekter. Brukeren trenger i tillegg standard tilganger til vare, lagerføringsenhet, lokasjon, overføringsrute, speditør, rekvisisjonskladd, planlegging, overføringsordre, reservasjoner og e-post. [AVKLARES: hvilke standard permission sets som tildeles jobbkøbrukeren]
@@ -538,7 +546,8 @@ DP RUN KBS gir ikke kjøretilgang til DP Setup KBS, DP Assortment KBS eller DP L
 - **DP Upgrade KBS (Subtype = Upgrade):**
   - Setter Min. Days In Stock = 14 når verdien er 0.
   - Setter Sales Alert % = 50, Log Retention Days = 90, Approval Factor = 2 og Approval History Orders = 4 én gang per selskap, styrt av tagen `KBS-DELIVERYPLANNER-MONITORING-DEFAULTS-20261016`.
-  - Tagen registreres via `OnGetPerCompanyUpgradeTags`, så nye installasjoner beholder egne valg.
+  - Fyller Planning Date på eksisterende beregningslinjer fra kjøringen, styrt av tagen `KBS-DELIVERYPLANNER-RUNLINE-PLANNINGDATE-20261016`.
+  - Tagene registreres via `OnGetPerCompanyUpgradeTags`, så nye installasjoner beholder egne valg.
 - **Atferdsendring ved oppgradering fra første versjon:**
   - Oppsettsfeil på enkeltvarer eller butikker stopper ikke lenger kjøringen.
   - Vektfordeling er erstattet av fordeling etter dager med dekning.
@@ -603,3 +612,4 @@ Automatiserte tester dekker beregningene bak scenariene 1–9, 11–15, 17 og 19
 |---|---|---|---|
 | 1.0.0.0 | 2026-10-14 | Første versjon av dokumentet | Knowit Insight Business Solutions |
 | [AVKLARES: versjon] | 2026-10-15 | Lagt til: makslager fra varekortet, masseoppdatering av lokasjoner, salgstakt uten utsolgte dager, leveringsdager med transporttid fra rute, fordeling etter dager med dekning, avviksliste, oppsettsfeil per linje, nøkkeltall og rollesenter, e-postvarsel og salgskontroll, logg-opprydding, tidsmåling og telemetri, godkjenning av store ordrer, upgrade codeunit | Knowit Insight Business Solutions |
+| [AVKLARES: versjon] | [AVKLARES: dato] | API-sider for Power BI (78911–78915), rettighetssett DP API KBS, Planning Date på beregningslinjen. Rapportspesifikasjon i `Docs/PowerBI/` | Knowit Insight Business Solutions |

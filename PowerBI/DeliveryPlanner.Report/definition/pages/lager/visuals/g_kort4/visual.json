@@ -1,0 +1,60 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.13.0/schema.json",
+  "name": "g_kort4",
+  "position": {
+    "x": 960,
+    "y": 80,
+    "z": 31000,
+    "width": 305,
+    "height": 110,
+    "tabOrder": 31000
+  },
+  "visual": {
+    "visualType": "card",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Mål"
+                    }
+                  },
+                  "Property": "Snitt kjøretid (min)"
+                }
+              },
+              "queryRef": "_Mål.Snitt kjøretid (min)",
+              "nativeQueryRef": "Snitt kjøretid (min)"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true,
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Snitt kjøretid (min)'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

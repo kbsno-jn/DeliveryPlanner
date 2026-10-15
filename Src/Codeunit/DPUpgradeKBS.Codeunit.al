@@ -7,6 +7,12 @@ codeunit 78907 "DP Upgrade KBS"
     Subtype = Upgrade;
 
     trigger OnUpgradePerCompany()
+    begin
+        UpgradeSetupDefaults();
+        UpgradeRunLinePlanningDate();
+    end;
+
+    local procedure UpgradeSetupDefaults()
     var
         Setup: Record "DP Setup KBS";
         UpgradeTag: Codeunit "Upgrade Tag";
@@ -29,15 +35,39 @@ codeunit 78907 "DP Upgrade KBS"
         UpgradeTag.SetUpgradeTag(MonitoringDefaultsTag());
     end;
 
+    // Reporting filters run lines on their own planning date, so lines from earlier versions get it from their run.
+    local procedure UpgradeRunLinePlanningDate()
+    var
+        RunRecord: Record "DP Run KBS";
+        RunLine: Record "DP Run Line KBS";
+        UpgradeTag: Codeunit "Upgrade Tag";
+    begin
+        if UpgradeTag.HasUpgradeTag(RunLinePlanningDateTag()) then
+            exit;
+        RunRecord.SetLoadFields("Planning Date");
+        if RunRecord.FindSet() then
+            repeat
+                RunLine.SetRange("Run ID", RunRecord."Run ID");
+                RunLine.ModifyAll("Planning Date", RunRecord."Planning Date", false);
+            until RunRecord.Next() = 0;
+        UpgradeTag.SetUpgradeTag(RunLinePlanningDateTag());
+    end;
+
     // Registered tags are set on install, so new companies keep the values they choose.
     [EventSubscriber(ObjectType::Codeunit, Codeunit::"Upgrade Tag", 'OnGetPerCompanyUpgradeTags', '', false, false)]
     local procedure RegisterPerCompanyTags(var PerCompanyUpgradeTags: List of [Code[250]])
     begin
         PerCompanyUpgradeTags.Add(MonitoringDefaultsTag());
+        PerCompanyUpgradeTags.Add(RunLinePlanningDateTag());
     end;
 
     local procedure MonitoringDefaultsTag(): Code[250]
     begin
         exit('KBS-DELIVERYPLANNER-MONITORING-DEFAULTS-20261016');
+    end;
+
+    local procedure RunLinePlanningDateTag(): Code[250]
+    begin
+        exit('KBS-DELIVERYPLANNER-RUNLINE-PLANNINGDATE-20261016');
     end;
 }

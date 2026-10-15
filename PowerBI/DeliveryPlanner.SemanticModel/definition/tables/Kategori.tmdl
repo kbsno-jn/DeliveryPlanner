@@ -1,0 +1,43 @@
+table Kategori
+
+	column Kategorikode
+		dataType: string
+		summarizeBy: none
+		sourceColumn: code
+
+		annotation SummarizationSetBy = User
+
+	column Kategori
+		dataType: string
+		summarizeBy: none
+		sourceColumn: description
+
+		annotation SummarizationSetBy = User
+
+	column Dekningsdager
+		dataType: int64
+		formatString: 0
+		summarizeBy: none
+		sourceColumn: coverageDays
+
+		annotation SummarizationSetBy = User
+
+	column Fordelingsvekt
+		dataType: double
+		formatString: 0.##
+		summarizeBy: none
+		sourceColumn: allocationWeight
+
+		annotation SummarizationSetBy = User
+
+	partition Kategori = m
+		mode: import
+		source =
+				let
+				    Kategorier = Kilde_DP("deliveryStoreCategories"),
+				    Valgt = Table.SelectColumns(Kategorier, {"code", "description", "coverageDays", "allocationWeight"}),
+				    Typer = Table.TransformColumnTypes(Valgt, {{"code", type text}, {"description", type text}, {"coverageDays", Int64.Type}, {"allocationWeight", type number}})
+				in
+				    Typer
+
+	annotation PBI_ResultType = Table

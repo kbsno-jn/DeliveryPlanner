@@ -1,0 +1,148 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.13.0/schema.json",
+  "name": "g_ordrer",
+  "position": {
+    "x": 0,
+    "y": 470,
+    "z": 34000,
+    "width": 630,
+    "height": 250,
+    "tabOrder": 34000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Butikkordre"
+                    }
+                  },
+                  "Property": "Planleggingsdato"
+                }
+              },
+              "queryRef": "Butikkordre.Planleggingsdato",
+              "nativeQueryRef": "Planleggingsdato"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Butikk"
+                    }
+                  },
+                  "Property": "Butikk"
+                }
+              },
+              "queryRef": "Butikk.Butikk",
+              "nativeQueryRef": "Butikk"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Butikkordre"
+                    }
+                  },
+                  "Property": "Overføringsordre"
+                }
+              },
+              "queryRef": "Butikkordre.Overføringsordre",
+              "nativeQueryRef": "Overføringsordre"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Butikkordre"
+                    }
+                  },
+                  "Property": "Antall"
+                }
+              },
+              "queryRef": "Butikkordre.Antall",
+              "nativeQueryRef": "Antall"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Butikkordre"
+                    }
+                  },
+                  "Property": "Snitt siste ordrer"
+                }
+              },
+              "queryRef": "Butikkordre.Snitt siste ordrer",
+              "nativeQueryRef": "Snitt siste ordrer"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Butikkordre"
+                    }
+                  },
+                  "Property": "Godkjenning"
+                }
+              },
+              "queryRef": "Butikkordre.Godkjenning",
+              "nativeQueryRef": "Godkjenning"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Column": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "Butikkordre"
+                  }
+                },
+                "Property": "Planleggingsdato"
+              }
+            },
+            "direction": "Descending"
+          }
+        ],
+        "isDefaultSort": false
+      }
+    },
+    "drillFilterOtherVisuals": true,
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Butikkordrer'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

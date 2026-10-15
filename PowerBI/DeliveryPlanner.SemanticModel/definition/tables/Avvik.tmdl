@@ -1,0 +1,43 @@
+table Avvik
+
+	column Avvikskode
+		dataType: string
+		isHidden
+		summarizeBy: none
+		sourceColumn: Avvikskode
+
+		annotation SummarizationSetBy = User
+
+	column Avvik
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Avvik
+		sortByColumn: Sortering
+
+		annotation SummarizationSetBy = User
+
+	column Sortering
+		dataType: int64
+		formatString: 0
+		isHidden
+		summarizeBy: none
+		sourceColumn: Sortering
+
+		annotation SummarizationSetBy = User
+
+	partition Avvik = m
+		mode: import
+		source =
+				let
+				    Tabell = #table(type table [Avvikskode = text, Avvik = text, Sortering = Int64.Type], {
+				        {"None", "Ingen", 0},
+				        {"Missing_x0020_Setup", "Mangler oppsett", 1},
+				        {"Out_x0020_of_x0020_Stock_x0020_Unmet_x0020_Need", "Tom – udekket behov", 2},
+				        {"Unmet_x0020_Need", "Udekket behov", 3},
+				        {"Out_x0020_of_x0020_Stock", "Tom i butikk", 4},
+				        {"Over_x0020_Maximum", "Over makslager", 5},
+				        {"Awaiting_x0020_Approval", "Venter på godkjenning", 6}})
+				in
+				    Tabell
+
+	annotation PBI_ResultType = Table

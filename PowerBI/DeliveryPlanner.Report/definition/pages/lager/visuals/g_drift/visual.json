@@ -1,0 +1,162 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.13.0/schema.json",
+  "name": "g_drift",
+  "position": {
+    "x": 640,
+    "y": 470,
+    "z": 35000,
+    "width": 625,
+    "height": 250,
+    "tabOrder": 35000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Kjøring"
+                    }
+                  },
+                  "Property": "Startet"
+                }
+              },
+              "queryRef": "Kjøring.Startet",
+              "nativeQueryRef": "Startet"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Kjøring"
+                    }
+                  },
+                  "Property": "Status"
+                }
+              },
+              "queryRef": "Kjøring.Status",
+              "nativeQueryRef": "Status"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Kjøring"
+                    }
+                  },
+                  "Property": "Kjøretid (min)"
+                }
+              },
+              "queryRef": "Kjøring.Kjøretid (min)",
+              "nativeQueryRef": "Kjøretid (min)"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Kjøring"
+                    }
+                  },
+                  "Property": "Ordrer opprettet"
+                }
+              },
+              "queryRef": "Kjøring.Ordrer opprettet",
+              "nativeQueryRef": "Ordrer opprettet"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Kjøring"
+                    }
+                  },
+                  "Property": "Til godkjenning"
+                }
+              },
+              "queryRef": "Kjøring.Til godkjenning",
+              "nativeQueryRef": "Til godkjenning"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Kjøring"
+                    }
+                  },
+                  "Property": "Butikker uten salg"
+                }
+              },
+              "queryRef": "Kjøring.Butikker uten salg",
+              "nativeQueryRef": "Butikker uten salg"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Kjøring"
+                    }
+                  },
+                  "Property": "Feilmelding"
+                }
+              },
+              "queryRef": "Kjøring.Feilmelding",
+              "nativeQueryRef": "Feilmelding"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Column": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "Kjøring"
+                  }
+                },
+                "Property": "Startet"
+              }
+            },
+            "direction": "Descending"
+          }
+        ],
+        "isDefaultSort": false
+      }
+    },
+    "drillFilterOtherVisuals": true,
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Nattjobb'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

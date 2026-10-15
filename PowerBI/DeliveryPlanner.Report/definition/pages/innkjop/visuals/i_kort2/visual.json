@@ -1,0 +1,60 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.13.0/schema.json",
+  "name": "i_kort2",
+  "position": {
+    "x": 320,
+    "y": 80,
+    "z": 17000,
+    "width": 305,
+    "height": 110,
+    "tabOrder": 17000
+  },
+  "visual": {
+    "visualType": "card",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Mål"
+                    }
+                  },
+                  "Property": "Udekket behov (kr)"
+                }
+              },
+              "queryRef": "_Mål.Udekket behov (kr)",
+              "nativeQueryRef": "Udekket behov (kr)"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true,
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Udekket behov (kr)'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.13.0/schema.json",
+  "name": "i_kort4",
+  "position": {
+    "x": 960,
+    "y": 80,
+    "z": 19000,
+    "width": 305,
+    "height": 110,
+    "tabOrder": 19000
+  },
+  "visual": {
+    "visualType": "card",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Mål"
+                    }
+                  },
+                  "Property": "Mangler oppsett (siste natt)"
+                }
+              },
+              "queryRef": "_Mål.Mangler oppsett (siste natt)",
+              "nativeQueryRef": "Mangler oppsett (siste natt)"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true,
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Mangler oppsett (siste natt)'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

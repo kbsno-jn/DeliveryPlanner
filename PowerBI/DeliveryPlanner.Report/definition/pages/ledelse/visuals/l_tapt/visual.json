@@ -1,0 +1,96 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.13.0/schema.json",
+  "name": "l_tapt",
+  "position": {
+    "x": 640,
+    "y": 470,
+    "z": 11000,
+    "width": 625,
+    "height": 250,
+    "tabOrder": 11000
+  },
+  "visual": {
+    "visualType": "clusteredBarChart",
+    "query": {
+      "queryState": {
+        "Category": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Vare"
+                    }
+                  },
+                  "Property": "Varekategori"
+                }
+              },
+              "queryRef": "Vare.Varekategori",
+              "nativeQueryRef": "Varekategori"
+            }
+          ]
+        },
+        "Y": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Mål"
+                    }
+                  },
+                  "Property": "Tapte salgsdager (kr)"
+                }
+              },
+              "queryRef": "_Mål.Tapte salgsdager (kr)",
+              "nativeQueryRef": "Tapte salgsdager (kr)"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Measure": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "_Mål"
+                  }
+                },
+                "Property": "Tapte salgsdager (kr)"
+              }
+            },
+            "direction": "Descending"
+          }
+        ],
+        "isDefaultSort": false
+      }
+    },
+    "drillFilterOtherVisuals": true,
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Tapte salgsdager per varekategori (kr, innkjøpsverdi)'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

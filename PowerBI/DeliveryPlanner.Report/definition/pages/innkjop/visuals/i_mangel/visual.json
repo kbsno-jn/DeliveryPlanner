@@ -1,0 +1,162 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.13.0/schema.json",
+  "name": "i_mangel",
+  "position": {
+    "x": 0,
+    "y": 200,
+    "z": 20000,
+    "width": 630,
+    "height": 260,
+    "tabOrder": 20000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Vare"
+                    }
+                  },
+                  "Property": "Varenr"
+                }
+              },
+              "queryRef": "Vare.Varenr",
+              "nativeQueryRef": "Varenr"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Vare"
+                    }
+                  },
+                  "Property": "Varenavn"
+                }
+              },
+              "queryRef": "Vare.Varenavn",
+              "nativeQueryRef": "Varenavn"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Vare"
+                    }
+                  },
+                  "Property": "Varekategori"
+                }
+              },
+              "queryRef": "Vare.Varekategori",
+              "nativeQueryRef": "Varekategori"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Mål"
+                    }
+                  },
+                  "Property": "Udekket behov (enheter)"
+                }
+              },
+              "queryRef": "_Mål.Udekket behov (enheter)",
+              "nativeQueryRef": "Udekket behov (enheter)"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Mål"
+                    }
+                  },
+                  "Property": "Udekket behov (kr)"
+                }
+              },
+              "queryRef": "_Mål.Udekket behov (kr)",
+              "nativeQueryRef": "Udekket behov (kr)"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Mål"
+                    }
+                  },
+                  "Property": "Butikker berørt"
+                }
+              },
+              "queryRef": "_Mål.Butikker berørt",
+              "nativeQueryRef": "Butikker berørt"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Mål"
+                    }
+                  },
+                  "Property": "Netter med mangel"
+                }
+              },
+              "queryRef": "_Mål.Netter med mangel",
+              "nativeQueryRef": "Netter med mangel"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Measure": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "_Mål"
+                  }
+                },
+                "Property": "Udekket behov (kr)"
+              }
+            },
+            "direction": "Descending"
+          }
+        ],
+        "isDefaultSort": false
+      }
+    },
+    "drillFilterOtherVisuals": true,
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Mangel på hovedlageret'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

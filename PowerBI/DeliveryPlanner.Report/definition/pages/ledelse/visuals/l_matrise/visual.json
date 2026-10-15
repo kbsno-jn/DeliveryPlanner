@@ -1,0 +1,96 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.13.0/schema.json",
+  "name": "l_matrise",
+  "position": {
+    "x": 0,
+    "y": 470,
+    "z": 10000,
+    "width": 630,
+    "height": 250,
+    "tabOrder": 10000
+  },
+  "visual": {
+    "visualType": "pivotTable",
+    "query": {
+      "queryState": {
+        "Rows": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Butikk"
+                    }
+                  },
+                  "Property": "Butikk"
+                }
+              },
+              "queryRef": "Butikk.Butikk",
+              "nativeQueryRef": "Butikk"
+            }
+          ]
+        },
+        "Columns": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Dato"
+                    }
+                  },
+                  "Property": "Uke"
+                }
+              },
+              "queryRef": "Dato.Uke",
+              "nativeQueryRef": "Uke"
+            }
+          ]
+        },
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Mål"
+                    }
+                  },
+                  "Property": "Tilgjengelighet %"
+                }
+              },
+              "queryRef": "_Mål.Tilgjengelighet %",
+              "nativeQueryRef": "Tilgjengelighet %"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true,
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Tilgjengelighet per butikk og uke'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

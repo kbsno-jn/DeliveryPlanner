@@ -31,6 +31,7 @@ DeliveryPlanner er en per-tenant-utvidelse (PTE) for Business Central. Den fylle
 - [Funksjonalitet](Funksjonalitet) – hva appen gjør, og hvordan den regner
 - [Arkitektur](Arkitektur) – objekter, kjøringsflyt, transaksjoner og event subscribers
 - [Oppsett og drift](Oppsett-og-drift) – installasjon, kundens oppsett, rettigheter og nattjobb
+- [Power BI](Power-BI) – API-sider og rapport for ledelse, innkjøp og lager
 - [Utvikling](Utvikling) – bygging, tester, konvensjoner og fallgruver
 - [Feilsøking](Feilsøking) – vanlige feil og hva de betyr
 
@@ -41,4 +42,5 @@ DeliveryPlanner er en per-tenant-utvidelse (PTE) for Business Central. Den fylle
 | `Docs/DeliveryPlanner - Teknisk spesifikasjon.md` | Full objektoversikt, datamodell, formler og testscenarier | Utviklere |
 | `Docs/DeliveryPlanner - Brukerveiledning.docx` | Steg-for-steg-veiledning med plassholdere for skjermbilder | Kundens brukere |
 | `Docs/DeliveryPlanner - Forslag til videreutvikling.docx` | 16 forslag i fire faser, der 1, 2, 5 og 12–16 er implementert | Kunde og prosjekt |
+| `Docs/PowerBI/DeliveryPlanner - Power BI-rapport.md` | Datamodell, Power Query, DAX og faner for Power BI-rapporten | Rapportutvikler |
 | `DeliveryPlanner PLAN.md` | Den opprinnelige planen for versjon 1 | Historikk |

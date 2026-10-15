@@ -201,6 +201,7 @@ codeunit 78901 "DP Worker KBS"
                     RunLine.Init();
                     RunLine."Run ID" := RunRecord."Run ID";
                     RunLine."Entry No." := EntryNo;
+                    RunLine."Planning Date" := RunRecord."Planning Date";
                     if not StoreProblems.ContainsKey(Store.Code) then
                         AddStoreSchedule(Setup, RunRecord, Store, StoreProblems, StoreShipsNow, StoreReceiptDates,
                             StoreNextReceiptDates, StoreFirstDeliveryDates, StoreCoverageDays);

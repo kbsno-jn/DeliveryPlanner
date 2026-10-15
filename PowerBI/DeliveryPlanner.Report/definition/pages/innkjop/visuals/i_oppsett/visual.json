@@ -1,0 +1,116 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.13.0/schema.json",
+  "name": "i_oppsett",
+  "position": {
+    "x": 640,
+    "y": 470,
+    "z": 23000,
+    "width": 625,
+    "height": 250,
+    "tabOrder": 23000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Avvik"
+                    }
+                  },
+                  "Property": "Avvik"
+                }
+              },
+              "queryRef": "Avvik.Avvik",
+              "nativeQueryRef": "Avvik"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Butikk"
+                    }
+                  },
+                  "Property": "Butikk"
+                }
+              },
+              "queryRef": "Butikk.Butikk",
+              "nativeQueryRef": "Butikk"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Beregning"
+                    }
+                  },
+                  "Property": "Varenr"
+                }
+              },
+              "queryRef": "Beregning.Varenr",
+              "nativeQueryRef": "Varenr"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Beregning"
+                    }
+                  },
+                  "Property": "Begrunnelse"
+                }
+              },
+              "queryRef": "Beregning.Begrunnelse",
+              "nativeQueryRef": "Begrunnelse"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Mål"
+                    }
+                  },
+                  "Property": "Avvik (siste natt)"
+                }
+              },
+              "queryRef": "_Mål.Avvik (siste natt)",
+              "nativeQueryRef": "Avvik (siste natt)"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true,
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Avvik siste natt'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

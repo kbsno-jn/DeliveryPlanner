@@ -1,0 +1,134 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.13.0/schema.json",
+  "name": "i_tomme",
+  "position": {
+    "x": 640,
+    "y": 200,
+    "z": 21000,
+    "width": 625,
+    "height": 260,
+    "tabOrder": 21000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Vare"
+                    }
+                  },
+                  "Property": "Varenr"
+                }
+              },
+              "queryRef": "Vare.Varenr",
+              "nativeQueryRef": "Varenr"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Vare"
+                    }
+                  },
+                  "Property": "Varenavn"
+                }
+              },
+              "queryRef": "Vare.Varenavn",
+              "nativeQueryRef": "Varenavn"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Mål"
+                    }
+                  },
+                  "Property": "Tomme butikkdager"
+                }
+              },
+              "queryRef": "_Mål.Tomme butikkdager",
+              "nativeQueryRef": "Tomme butikkdager"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Mål"
+                    }
+                  },
+                  "Property": "Snitt dager med dekning"
+                }
+              },
+              "queryRef": "_Mål.Snitt dager med dekning",
+              "nativeQueryRef": "Snitt dager med dekning"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Mål"
+                    }
+                  },
+                  "Property": "Makslager-treff"
+                }
+              },
+              "queryRef": "_Mål.Makslager-treff",
+              "nativeQueryRef": "Makslager-treff"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Measure": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "_Mål"
+                  }
+                },
+                "Property": "Tomme butikkdager"
+              }
+            },
+            "direction": "Descending"
+          }
+        ],
+        "isDefaultSort": false
+      }
+    },
+    "drillFilterOtherVisuals": true,
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Ofte tomme i butikk'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

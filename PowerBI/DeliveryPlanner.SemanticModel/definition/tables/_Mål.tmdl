@@ -1,0 +1,197 @@
+table '_Mål'
+
+	measure 'Beregnede linjer' = CALCULATE ( COUNTROWS ( Beregning ), Beregning[Avvikskode] <> "Missing_x0020_Setup" )
+		formatString: #,0
+		displayFolder: Grunnlag
+
+	measure 'Siste dato' = MAX ( Beregning[Planleggingsdato] )
+		formatString: dd.mm.yyyy
+		displayFolder: Grunnlag
+
+	measure Netter = DISTINCTCOUNT ( Beregning[Planleggingsdato] )
+		formatString: #,0
+		displayFolder: Grunnlag
+
+	measure 'Tilgjengelighet %' = DIVIDE ( CALCULATE ( [Beregnede linjer], Beregning[Beholdning] > 0 ), [Beregnede linjer] )
+		formatString: 0.0 %
+		displayFolder: Tilgjengelighet
+
+	measure 'Tilgjengelighet forrige periode %' = CALCULATE ( [Tilgjengelighet %], DATEADD ( Dato[Dato], -28, DAY ) )
+		formatString: 0.0 %
+		displayFolder: Tilgjengelighet
+
+	measure 'Endring tilgjengelighet (pp)' = ( [Tilgjengelighet %] - [Tilgjengelighet forrige periode %] ) * 100
+		formatString: +0.0;-0.0;0.0
+		displayFolder: Tilgjengelighet
+
+	measure 'Mål tilgjengelighet' = 0.95
+		formatString: 0 %
+		displayFolder: Tilgjengelighet
+
+	measure 'Servicegrad 56 dager %' =
+			VAR d = [Siste dato]
+			VAR Linjer = FILTER ( Beregning, Beregning[Planleggingsdato] = d && Beregning[Avvikskode] <> "Missing_x0020_Setup" )
+			RETURN
+			    DIVIDE ( SUMX ( Linjer, Beregning[Dager på lager] ), SUMX ( Linjer, Beregning[Analysedager] ) )
+		formatString: 0.0 %
+		displayFolder: Tilgjengelighet
+
+	measure 'Tomme varer (siste natt)' =
+			VAR d = [Siste dato]
+			RETURN
+			    CALCULATE ( [Beregnede linjer], Beregning[Beholdning] <= 0, Beregning[Planleggingsdato] = d )
+		formatString: #,0
+		displayFolder: Tomme varer
+
+	measure 'Tomme butikkdager' = CALCULATE ( [Beregnede linjer], Beregning[Beholdning] <= 0 )
+		formatString: #,0
+		displayFolder: Tomme varer
+
+	measure 'Tapte salgsdager (kr)' =
+			SUMX (
+			    FILTER ( Beregning, Beregning[Beholdning] <= 0 && Beregning[Avvikskode] <> "Missing_x0020_Setup" ),
+			    Beregning[Daglig salg] * RELATED ( Vare[Enhetskost] )
+			)
+		formatString: #,0
+		displayFolder: Tomme varer
+
+	measure 'Udekket behov (enheter)' = SUM ( Beregning[Udekket] )
+		formatString: #,0
+		displayFolder: Mangel
+
+	measure 'Udekket behov (kr)' = SUMX ( Beregning, Beregning[Udekket] * RELATED ( Vare[Enhetskost] ) )
+		formatString: #,0
+		displayFolder: Mangel
+
+	measure 'Varer med udekket behov' = CALCULATE ( DISTINCTCOUNT ( Beregning[Varenr] ), Beregning[Udekket] > 0 )
+		formatString: #,0
+		displayFolder: Mangel
+
+	measure 'Butikker berørt' = CALCULATE ( DISTINCTCOUNT ( Beregning[Butikkode] ), Beregning[Udekket] > 0 )
+		formatString: #,0
+		displayFolder: Mangel
+
+	measure 'Netter med mangel' = CALCULATE ( DISTINCTCOUNT ( Beregning[Planleggingsdato] ), Beregning[Udekket] > 0 )
+		formatString: #,0
+		displayFolder: Mangel
+
+	measure 'Overlager (enheter, siste natt)' =
+			VAR d = [Siste dato]
+			RETURN
+			    SUMX (
+			        FILTER ( Beregning, Beregning[Planleggingsdato] = d && Beregning[Makslager] > 0 ),
+			        MAX ( 0, Beregning[Beholdning] + Beregning[Inngående] - Beregning[Makslager] )
+			    )
+		formatString: #,0
+		displayFolder: Lager
+
+	measure 'Overlager (kr, siste natt)' =
+			VAR d = [Siste dato]
+			RETURN
+			    SUMX (
+			        FILTER ( Beregning, Beregning[Planleggingsdato] = d && Beregning[Makslager] > 0 ),
+			        MAX ( 0, Beregning[Beholdning] + Beregning[Inngående] - Beregning[Makslager] ) * RELATED ( Vare[Enhetskost] )
+			    )
+		formatString: #,0
+		displayFolder: Lager
+
+	measure 'Lagerverdi butikk (kr, siste natt)' =
+			VAR d = [Siste dato]
+			RETURN
+			    SUMX (
+			        FILTER ( Beregning, Beregning[Planleggingsdato] = d ),
+			        MAX ( 0, Beregning[Beholdning] ) * RELATED ( Vare[Enhetskost] )
+			    )
+		formatString: #,0
+		displayFolder: Lager
+
+	measure 'Overlager andel %' = DIVIDE ( [Overlager (kr, siste natt)], [Lagerverdi butikk (kr, siste natt)] )
+		formatString: 0.0 %
+		displayFolder: Lager
+
+	measure 'Snitt dager med dekning' = AVERAGEX ( FILTER ( Beregning, Beregning[Daglig salg] > 0 ), Beregning[Dager med dekning] )
+		formatString: #,0.0
+		displayFolder: Lager
+
+	measure 'Makslager-treff' = CALCULATE ( [Beregnede linjer], Beregning[Ledig kapasitet] = 0, Beregning[Daglig salg] > 0 )
+		formatString: #,0
+		displayFolder: Lager
+
+	measure 'Avvik (siste natt)' =
+			VAR d = [Siste dato]
+			RETURN
+			    CALCULATE ( COUNTROWS ( Beregning ), Beregning[Avvikskode] <> "None", Beregning[Planleggingsdato] = d )
+		formatString: #,0
+		displayFolder: Avvik
+
+	measure 'Mangler oppsett (siste natt)' =
+			VAR d = [Siste dato]
+			RETURN
+			    CALCULATE ( COUNTROWS ( Beregning ), Beregning[Avvikskode] = "Missing_x0020_Setup", Beregning[Planleggingsdato] = d )
+		formatString: #,0
+		displayFolder: Avvik
+
+	measure Ordrer = COUNTROWS ( Butikkordre )
+		formatString: #,0
+		displayFolder: Ordrer
+
+	measure 'Enheter sendt' = SUM ( Butikkordre[Antall] )
+		formatString: #,0
+		displayFolder: Ordrer
+
+	measure 'Ordrer til godkjenning (nå)' = CALCULATE ( COUNTROWS ( Butikkordre ), Butikkordre[Godkjenningskode] = "Awaiting_x0020_Approval", REMOVEFILTERS ( Dato ) )
+		formatString: #,0
+		displayFolder: Ordrer
+
+	measure 'Ordrestørrelse mot snitt' =
+			DIVIDE (
+			    CALCULATE ( SUM ( Butikkordre[Antall] ), Butikkordre[Snitt siste ordrer] > 0 ),
+			    CALCULATE ( SUM ( Butikkordre[Snitt siste ordrer] ), Butikkordre[Snitt siste ordrer] > 0 )
+			)
+		formatString: 0.00
+		displayFolder: Ordrer
+
+	measure 'Tildelt siste natt (enheter)' =
+			VAR d = [Siste dato]
+			RETURN
+			    CALCULATE ( SUM ( Beregning[Tildelt] ), Beregning[Planleggingsdato] = d )
+		formatString: #,0
+		displayFolder: Ordrer
+
+	measure 'Varelinjer siste natt' =
+			VAR d = [Siste dato]
+			RETURN
+			    CALCULATE ( COUNTROWS ( Beregning ), Beregning[Tildelt] > 0, Beregning[Planleggingsdato] = d )
+		formatString: #,0
+		displayFolder: Ordrer
+
+	measure 'Nattkjøringer' = CALCULATE ( COUNTROWS ( 'Kjøring' ), 'Kjøring'[Opprettet ordrer] = TRUE () )
+		formatString: #,0
+		displayFolder: Drift
+
+	measure 'Nattjobb OK %' = DIVIDE ( CALCULATE ( [Nattkjøringer], 'Kjøring'[Statuskode] = "Completed" ), [Nattkjøringer] )
+		formatString: 0.0 %
+		displayFolder: Drift
+
+	measure 'Snitt kjøretid (min)' = CALCULATE ( AVERAGE ( 'Kjøring'[Kjøretid (min)] ), 'Kjøring'[Statuskode] = "Completed" )
+		formatString: #,0.0
+		displayFolder: Drift
+
+	measure Salgsvarsler = CALCULATE ( COUNTROWS ( 'Kjøring' ), 'Kjøring'[Salgsvarsel] = TRUE () )
+		formatString: #,0
+		displayFolder: Drift
+
+	column Kolonne
+		dataType: string
+		isHidden
+		summarizeBy: none
+		sourceColumn: Kolonne
+
+		annotation SummarizationSetBy = User
+
+	partition '_Mål' = m
+		mode: import
+		source =
+				#table(type table [Kolonne = text], {})
+
+	annotation PBI_ResultType = Table

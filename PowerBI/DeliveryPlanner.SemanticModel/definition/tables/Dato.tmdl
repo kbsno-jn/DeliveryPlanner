@@ -1,0 +1,95 @@
+table Dato
+	dataCategory: Time
+
+	column Dato
+		dataType: dateTime
+		formatString: dd.mm.yyyy
+		isKey
+		summarizeBy: none
+		sourceColumn: Dato
+
+		annotation SummarizationSetBy = User
+
+	column 'År'
+		dataType: int64
+		formatString: 0
+		summarizeBy: none
+		sourceColumn: År
+
+		annotation SummarizationSetBy = User
+
+	column 'Måned'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Måned
+		sortByColumn: 'Månedsnr'
+
+		annotation SummarizationSetBy = User
+
+	column 'Månedsnr'
+		dataType: int64
+		formatString: 0
+		isHidden
+		summarizeBy: none
+		sourceColumn: Månedsnr
+
+		annotation SummarizationSetBy = User
+
+	column Uke
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Uke
+
+		annotation SummarizationSetBy = User
+
+	column Ukestart
+		dataType: dateTime
+		formatString: dd.mm.yyyy
+		summarizeBy: none
+		sourceColumn: Ukestart
+
+		annotation SummarizationSetBy = User
+
+	column Ukedag
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Ukedag
+		sortByColumn: Ukedagnr
+
+		annotation SummarizationSetBy = User
+
+	column Ukedagnr
+		dataType: int64
+		formatString: 0
+		isHidden
+		summarizeBy: none
+		sourceColumn: Ukedagnr
+
+		annotation SummarizationSetBy = User
+
+	partition Dato = m
+		mode: import
+		source =
+				let
+				    Start = #date(2025, 1, 1),
+				    Slutt = Date.EndOfYear(Date.From(DateTime.LocalNow())),
+				    Datoer = List.Dates(Start, Duration.Days(Slutt - Start) + 1, #duration(1, 0, 0, 0)),
+				    Tabell = Table.FromList(Datoer, Splitter.SplitByNothing(), {"Dato"}),
+				    Typet = Table.TransformColumnTypes(Tabell, {{"Dato", type date}}),
+				    År = Table.AddColumn(Typet, "År", each Date.Year([Dato]), Int64.Type),
+				    Månedsnr = Table.AddColumn(År, "Månedsnr", each Date.Month([Dato]), Int64.Type),
+				    Måned = Table.AddColumn(Månedsnr, "Måned", each {"jan", "feb", "mar", "apr", "mai", "jun", "jul", "aug", "sep", "okt", "nov", "des"}{[Månedsnr] - 1}, type text),
+				    // ISO week: the week number of the Thursday in the same week.
+				    Uke = Table.AddColumn(Måned, "Uke", each
+				        let
+				            Torsdag = Date.AddDays([Dato], 3 - Date.DayOfWeek([Dato], Day.Monday)),
+				            Nr = Number.RoundDown((Date.DayOfYear(Torsdag) - 1) / 7) + 1
+				        in
+				            Text.From(Date.Year(Torsdag)) & "-U" & Text.PadStart(Text.From(Nr), 2, "0"), type text),
+				    Ukestart = Table.AddColumn(Uke, "Ukestart", each Date.StartOfWeek([Dato], Day.Monday), type date),
+				    Ukedagnr = Table.AddColumn(Ukestart, "Ukedagnr", each Date.DayOfWeek([Dato], Day.Monday) + 1, Int64.Type),
+				    Ukedag = Table.AddColumn(Ukedagnr, "Ukedag", each {"Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag", "Lørdag", "Søndag"}{[Ukedagnr] - 1}, type text)
+				in
+				    Ukedag
+
+	annotation PBI_ResultType = Table

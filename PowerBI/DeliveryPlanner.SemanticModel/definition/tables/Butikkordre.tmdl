@@ -1,0 +1,71 @@
+table Butikkordre
+
+	column Planleggingsdato
+		dataType: dateTime
+		formatString: dd.mm.yyyy
+		summarizeBy: none
+		sourceColumn: planningDate
+
+		annotation SummarizationSetBy = User
+
+	column Butikkode
+		dataType: string
+		summarizeBy: none
+		sourceColumn: locationCode
+
+		annotation SummarizationSetBy = User
+
+	column 'Overføringsordre'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: transferOrderNumber
+
+		annotation SummarizationSetBy = User
+
+	column Antall
+		dataType: double
+		formatString: #,0.##
+		summarizeBy: sum
+		sourceColumn: quantity
+
+		annotation SummarizationSetBy = User
+
+	column 'Snitt siste ordrer'
+		dataType: double
+		formatString: #,0.##
+		summarizeBy: sum
+		sourceColumn: averageQuantity
+
+		annotation SummarizationSetBy = User
+
+	column Godkjenningskode
+		dataType: string
+		isHidden
+		summarizeBy: none
+		sourceColumn: approvalStatus
+
+		annotation SummarizationSetBy = User
+
+	column Godkjenning
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Godkjenning
+
+		annotation SummarizationSetBy = User
+
+	partition Butikkordre = m
+		mode: import
+		source =
+				let
+				    Ordrer = Kilde_DP("deliveryStoreOrders"),
+				    Periode = Table.SelectRows(Ordrer, each [planningDate] >= Date.From(RangeStart) and [planningDate] < Date.From(RangeEnd)),
+				    MedTekst = Table.AddColumn(Periode, "Godkjenning", each
+				        if [approvalStatus] = "Awaiting_x0020_Approval" then "Venter på godkjenning"
+				        else if [approvalStatus] = "Approved" then "Godkjent"
+				        else "Frigitt direkte", type text),
+				    Valgt = Table.SelectColumns(MedTekst, {"planningDate", "locationCode", "transferOrderNumber", "quantity", "averageQuantity", "approvalStatus", "Godkjenning"}),
+				    Typer = Table.TransformColumnTypes(Valgt, {{"planningDate", type date}, {"locationCode", type text}, {"transferOrderNumber", type text}, {"quantity", type number}, {"averageQuantity", type number}, {"approvalStatus", type text}, {"Godkjenning", type text}})
+				in
+				    Typer
+
+	annotation PBI_ResultType = Table

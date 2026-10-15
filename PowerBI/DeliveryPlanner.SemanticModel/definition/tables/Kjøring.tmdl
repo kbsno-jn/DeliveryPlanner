@@ -1,0 +1,128 @@
+table 'Kjøring'
+
+	column Planleggingsdato
+		dataType: dateTime
+		formatString: dd.mm.yyyy
+		summarizeBy: none
+		sourceColumn: planningDate
+
+		annotation SummarizationSetBy = User
+
+	column Startet
+		dataType: dateTime
+		formatString: dd.mm.yyyy hh:nn
+		summarizeBy: none
+		sourceColumn: startedAt
+
+		annotation SummarizationSetBy = User
+
+	column Avsluttet
+		dataType: dateTime
+		formatString: dd.mm.yyyy hh:nn
+		summarizeBy: none
+		sourceColumn: finishedAt
+
+		annotation SummarizationSetBy = User
+
+	column Statuskode
+		dataType: string
+		isHidden
+		summarizeBy: none
+		sourceColumn: status
+
+		annotation SummarizationSetBy = User
+
+	column Status
+		dataType: string
+		summarizeBy: none
+		sourceColumn: StatusTekst
+
+		annotation SummarizationSetBy = User
+
+	column 'Opprettet ordrer'
+		dataType: boolean
+		summarizeBy: none
+		sourceColumn: createOrders
+
+		annotation SummarizationSetBy = User
+
+	column Linjer
+		dataType: int64
+		formatString: #,0
+		summarizeBy: sum
+		sourceColumn: lineCount
+
+		annotation SummarizationSetBy = User
+
+	column 'Ordrer opprettet'
+		dataType: int64
+		formatString: #,0
+		summarizeBy: sum
+		sourceColumn: ordersCreated
+
+		annotation SummarizationSetBy = User
+
+	column 'Til godkjenning'
+		dataType: int64
+		formatString: #,0
+		summarizeBy: sum
+		sourceColumn: ordersAwaitingApproval
+
+		annotation SummarizationSetBy = User
+
+	column 'Butikker kontrollert'
+		dataType: int64
+		formatString: #,0
+		summarizeBy: sum
+		sourceColumn: storesChecked
+
+		annotation SummarizationSetBy = User
+
+	column 'Butikker uten salg'
+		dataType: int64
+		formatString: #,0
+		summarizeBy: sum
+		sourceColumn: storesWithoutSales
+
+		annotation SummarizationSetBy = User
+
+	column Salgsvarsel
+		dataType: boolean
+		summarizeBy: none
+		sourceColumn: salesWarning
+
+		annotation SummarizationSetBy = User
+
+	column Feilmelding
+		dataType: string
+		summarizeBy: none
+		sourceColumn: errorText
+
+		annotation SummarizationSetBy = User
+
+	column 'Kjøretid (min)'
+		dataType: double
+		formatString: #,0.0
+		summarizeBy: average
+		sourceColumn: Kjøretid (min)
+
+		annotation SummarizationSetBy = User
+
+	partition 'Kjøring' = m
+		mode: import
+		source =
+				let
+				    Kjøringer = Kilde_DP("deliveryRuns"),
+				    MedStatus = Table.AddColumn(Kjøringer, "StatusTekst", each
+				        if [status] = "Completed" then "Fullført"
+				        else if [status] = "Calculated" then "Beregnet"
+				        else if [status] = "Failed" then "Mislykket"
+				        else "Kjører", type text),
+				    MedTid = Table.AddColumn(MedStatus, "Kjøretid (min)", each
+				        try Duration.TotalMinutes(DateTimeZone.RemoveZone(DateTimeZone.From([finishedAt])) - DateTimeZone.RemoveZone(DateTimeZone.From([startedAt]))) otherwise null, type number),
+				    Valgt = Table.SelectColumns(MedTid, {"planningDate", "startedAt", "finishedAt", "status", "StatusTekst", "createOrders", "lineCount", "ordersCreated", "ordersAwaitingApproval", "storesChecked", "storesWithoutSales", "salesWarning", "errorText", "Kjøretid (min)"}),
+				    Typer = Table.TransformColumnTypes(Valgt, {{"planningDate", type date}, {"startedAt", type datetime}, {"finishedAt", type datetime}, {"status", type text}, {"StatusTekst", type text}, {"createOrders", type logical}, {"lineCount", Int64.Type}, {"ordersCreated", Int64.Type}, {"ordersAwaitingApproval", Int64.Type}, {"storesChecked", Int64.Type}, {"storesWithoutSales", Int64.Type}, {"salesWarning", type logical}, {"errorText", type text}, {"Kjøretid (min)", type number}})
+				in
+				    Typer
+
+	annotation PBI_ResultType = Table

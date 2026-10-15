@@ -184,6 +184,11 @@ table 78903 "DP Run Line KBS"
             Caption = 'Solgt i går';
             ToolTip = 'Angir om varen hadde bokført salg i butikken dagen før planleggingsdatoen.';
         }
+        field(32; "Planning Date"; Date)
+        {
+            Caption = 'Planleggingsdato';
+            ToolTip = 'Angir planleggingsdatoen for kjøringen linjen tilhører. Brukes til filtrering og rapportering.';
+        }
         field(30; "Item Description"; Text[100])
         {
             Caption = 'Varebeskrivelse';
@@ -199,6 +204,7 @@ table 78903 "DP Run Line KBS"
         key(ItemVariantLocation; "Item No.", "Variant Code", "Location Code") { }
         key(ByItem; "Run ID", "Item No.", "Variant Code", "Location Code") { }
         key(ByException; "Run ID", Exception, "Location Code", "Item No.") { }
+        key(ByPlanningDate; "Planning Date", "Location Code", "Item No.") { }
     }
 
     procedure UpdateException()

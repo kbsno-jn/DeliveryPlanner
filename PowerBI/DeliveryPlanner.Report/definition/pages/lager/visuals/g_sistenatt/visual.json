@@ -1,0 +1,120 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.13.0/schema.json",
+  "name": "g_sistenatt",
+  "position": {
+    "x": 640,
+    "y": 200,
+    "z": 33000,
+    "width": 625,
+    "height": 260,
+    "tabOrder": 33000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Butikk"
+                    }
+                  },
+                  "Property": "Butikk"
+                }
+              },
+              "queryRef": "Butikk.Butikk",
+              "nativeQueryRef": "Butikk"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Butikk"
+                    }
+                  },
+                  "Property": "Leveringsdager"
+                }
+              },
+              "queryRef": "Butikk.Leveringsdager",
+              "nativeQueryRef": "Leveringsdager"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Mål"
+                    }
+                  },
+                  "Property": "Varelinjer siste natt"
+                }
+              },
+              "queryRef": "_Mål.Varelinjer siste natt",
+              "nativeQueryRef": "Varelinjer siste natt"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Mål"
+                    }
+                  },
+                  "Property": "Tildelt siste natt (enheter)"
+                }
+              },
+              "queryRef": "_Mål.Tildelt siste natt (enheter)",
+              "nativeQueryRef": "Tildelt siste natt (enheter)"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Measure": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "_Mål"
+                  }
+                },
+                "Property": "Tildelt siste natt (enheter)"
+              }
+            },
+            "direction": "Descending"
+          }
+        ],
+        "isDefaultSort": false
+      }
+    },
+    "drillFilterOtherVisuals": true,
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Siste natt per butikk'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

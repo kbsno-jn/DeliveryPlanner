@@ -1,0 +1,60 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.13.0/schema.json",
+  "name": "g_kort1",
+  "position": {
+    "x": 0,
+    "y": 80,
+    "z": 28000,
+    "width": 305,
+    "height": 110,
+    "tabOrder": 28000
+  },
+  "visual": {
+    "visualType": "card",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Mål"
+                    }
+                  },
+                  "Property": "Enheter sendt"
+                }
+              },
+              "queryRef": "_Mål.Enheter sendt",
+              "nativeQueryRef": "Enheter sendt"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true,
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Enheter sendt i perioden'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

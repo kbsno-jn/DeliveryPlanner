@@ -1,0 +1,134 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.13.0/schema.json",
+  "name": "i_overlager",
+  "position": {
+    "x": 0,
+    "y": 470,
+    "z": 22000,
+    "width": 630,
+    "height": 250,
+    "tabOrder": 22000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Vare"
+                    }
+                  },
+                  "Property": "Varenr"
+                }
+              },
+              "queryRef": "Vare.Varenr",
+              "nativeQueryRef": "Varenr"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Butikk"
+                    }
+                  },
+                  "Property": "Butikk"
+                }
+              },
+              "queryRef": "Butikk.Butikk",
+              "nativeQueryRef": "Butikk"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Mål"
+                    }
+                  },
+                  "Property": "Overlager (enheter, siste natt)"
+                }
+              },
+              "queryRef": "_Mål.Overlager (enheter, siste natt)",
+              "nativeQueryRef": "Overlager (enheter, siste natt)"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Mål"
+                    }
+                  },
+                  "Property": "Overlager (kr, siste natt)"
+                }
+              },
+              "queryRef": "_Mål.Overlager (kr, siste natt)",
+              "nativeQueryRef": "Overlager (kr, siste natt)"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Mål"
+                    }
+                  },
+                  "Property": "Snitt dager med dekning"
+                }
+              },
+              "queryRef": "_Mål.Snitt dager med dekning",
+              "nativeQueryRef": "Snitt dager med dekning"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Measure": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "_Mål"
+                  }
+                },
+                "Property": "Overlager (kr, siste natt)"
+              }
+            },
+            "direction": "Descending"
+          }
+        ],
+        "isDefaultSort": false
+      }
+    },
+    "drillFilterOtherVisuals": true,
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Overlager – kandidater for lavere makslager'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
