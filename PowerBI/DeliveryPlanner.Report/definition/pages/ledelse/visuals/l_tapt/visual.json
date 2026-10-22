@@ -5,8 +5,8 @@
     "x": 640,
     "y": 470,
     "z": 11000,
-    "width": 625,
     "height": 250,
+    "width": 625,
     "tabOrder": 11000
   },
   "visual": {
@@ -27,7 +27,8 @@
                 }
               },
               "queryRef": "Vare.Varekategori",
-              "nativeQueryRef": "Varekategori"
+              "nativeQueryRef": "Varekategori",
+              "active": true
             }
           ]
         },
@@ -65,11 +66,9 @@
             },
             "direction": "Descending"
           }
-        ],
-        "isDefaultSort": false
+        ]
       }
     },
-    "drillFilterOtherVisuals": true,
     "visualContainerObjects": {
       "title": [
         {
@@ -91,6 +90,7 @@
           }
         }
       ]
-    }
+    },
+    "drillFilterOtherVisuals": true
   }
 }

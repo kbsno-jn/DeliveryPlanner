@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "SemanticModel",
+    "displayName": "DeliveryPlanner"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "8fd7d91f-1690-4337-b096-39b626d410d8"
+  }
+}

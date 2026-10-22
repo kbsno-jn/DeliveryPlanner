@@ -5,8 +5,8 @@
     "x": 0,
     "y": 470,
     "z": 34000,
-    "width": 630,
     "height": 250,
+    "width": 630,
     "tabOrder": 34000
   },
   "visual": {
@@ -117,11 +117,9 @@
             },
             "direction": "Descending"
           }
-        ],
-        "isDefaultSort": false
+        ]
       }
     },
-    "drillFilterOtherVisuals": true,
     "visualContainerObjects": {
       "title": [
         {
@@ -143,6 +141,7 @@
           }
         }
       ]
-    }
+    },
+    "drillFilterOtherVisuals": true
   }
 }

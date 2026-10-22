@@ -1,0 +1,1111 @@
+namespace Knowit.DeliveryPlanner;
+
+using Microsoft.Finance.GeneralLedger.Setup;
+using Microsoft.Foundation.Shipping;
+using Microsoft.Foundation.UOM;
+using Microsoft.Inventory.Item;
+using Microsoft.Inventory.Journal;
+using Microsoft.Inventory.Location;
+using Microsoft.Inventory.Posting;
+using Microsoft.Inventory.Setup;
+using Microsoft.Inventory.Transfer;
+using System.Security.User;
+using System.Threading;
+
+/// <summary>
+/// Creates a large, deterministic demo data set for DeliveryPlanner in a CRONUS-style company:
+/// a hub, 15 stores (north and south), 80 items, 56 days of posted store sales and receipts, and
+/// 8 weeks of simulated run history for key figures and Power BI. Runs as a one-off job queue entry.
+/// </summary>
+codeunit 70011 "DP Demo Data KBS"
+{
+    trigger OnRun()
+    begin
+        CreateDemoData();
+    end;
+
+    var
+        StoreCode: array[15] of Code[10];
+        StoreName: array[15] of Text[50];
+        StoreCategory: array[15] of Code[10];
+        StoreNorth: array[15] of Boolean;
+        StoreDays: array[15] of Text[7];
+        StoreFactor: array[15] of Decimal;
+        ItemNo: array[80] of Code[20];
+        ItemRate: array[80] of Decimal;
+        ItemPack: array[80] of Decimal;
+        ItemCost: array[80] of Decimal;
+        ItemCategoryOf: array[80] of Code[20];
+        StockStart: array[120] of Decimal;
+        DaySales: array[120] of Decimal;
+        Arrive: array[120] of Decimal;
+        InStock: array[120] of Boolean;
+        NightIncoming: array[120] of Decimal;
+        NightRate: array[120] of Decimal;
+        NightSold: array[120] of Decimal;
+        NightDaysInStock: array[120] of Integer;
+        NightCoverage: array[120] of Integer;
+        NightTarget: array[120] of Decimal;
+        NightCapacity: array[120] of Decimal;
+        NightNeed: array[120] of Decimal;
+        NightAlloc: array[120] of Decimal;
+        NightShips: array[120] of Boolean;
+        NightReceipt: array[120] of Date;
+        NightNextReceipt: array[120] of Date;
+        RunIdByDay: array[120] of Guid;
+        RunLineNo: array[120] of Integer;
+        RunOrderCount: array[120] of Integer;
+        RunLineCount: array[120] of Integer;
+        StoreOrderQty: Dictionary of [Text, Decimal];
+        Seed: BigInteger;
+        TemplateGenProdGroup: Code[20];
+        TemplateVATProdGroup: Code[20];
+        TemplateInvtGroup: Code[20];
+        TemplateTaxGroup: Code[20];
+        BaseUoM: Code[10];
+        HubTok: Label 'DP-HOVED', Locked = true;
+        TransitTok: Label 'DP-TRANSIT', Locked = true;
+        AgentTok: Label 'DPDEMO', Locked = true;
+        SouthServiceTok: Label 'SOR1D', Locked = true;
+        NorthServiceTok: Label 'NORD3D', Locked = true;
+        DemoUserTok: Label 'DEMO', Locked = true;
+        JournalTemplateTok: Label 'DPDEMO', Locked = true;
+        JournalBatchTok: Label 'DPDEMO', Locked = true;
+        SaleDocTok: Label 'DEMO-SALG', Locked = true;
+        ReceiptDocTok: Label 'DEMO-MOTTAK', Locked = true;
+        StartDocTok: Label 'DEMO-START', Locked = true;
+        AlreadyCreatedErr: Label 'Demodataene er allerede opprettet i dette selskapet (lokasjon %1 finnes). Bruk en ny sandkasse eller et nytt selskap.', Comment = '%1 = hub location';
+        NoTemplateItemErr: Label 'Fant ingen lagervare med bokføringsgrupper å kopiere fra. Demodataene krever et selskap med standard bokføringsoppsett, for eksempel CRONUS.';
+        AllowPostingErr: Label 'Bokføring er ikke tillatt fra %1. Demodataene bokfører salg 112 dager tilbake i tid. Fjern eller endre «Tillat bokføring fra» i Finansoppsett og Brukeroppsett.', Comment = '%1 = earliest date';
+        ScheduledMsg: Label 'Demodataene opprettes nå i bakgrunnen som en jobbkøpost. Det tar typisk 30–60 minutter. Følg med under Jobbkøposter.';
+        PreparedMsg: Label 'Butikken %1 er satt opp med leveringsdag %2, slik at en stor ordre venter på godkjenning når du kjører DeliveryPlanner i dag.', Comment = '%1 = store, %2 = date';
+        HistoryDays: Integer;
+
+    procedure Schedule()
+    var
+        JobQueueEntry: Record "Job Queue Entry";
+        Location: Record Location;
+    begin
+        if Location.Get(HubTok) then
+            Error(AlreadyCreatedErr, HubTok);
+        CheckPrerequisites();
+        JobQueueEntry.Init();
+        JobQueueEntry."Object Type to Run" := JobQueueEntry."Object Type to Run"::Codeunit;
+        JobQueueEntry."Object ID to Run" := Codeunit::"DP Demo Data KBS";
+        JobQueueEntry.Description := 'DeliveryPlanner – opprett demodata';
+        JobQueueEntry."Earliest Start Date/Time" := CurrentDateTime();
+        JobQueueEntry."Maximum No. of Attempts to Run" := 1;
+        Codeunit.Run(Codeunit::"Job Queue - Enqueue", JobQueueEntry);
+        Message(ScheduledMsg);
+    end;
+
+    procedure CreateDemoData()
+    var
+        Location: Record Location;
+    begin
+        if Location.Get(HubTok) then
+            Error(AlreadyCreatedErr, HubTok);
+        HistoryDays := 112;
+        Seed := 20261015;
+        CheckPrerequisites();
+        DefineStores();
+        DefineItems();
+        CreateLocationsAndRoutes();
+        CreateItems();
+        Commit();
+        CreateAssortment();
+        Commit();
+        CreateHistoryRuns();
+        Commit();
+        SimulateAllSKUs();
+        CreateStoreOrders();
+        Commit();
+        PostHubStock();
+        ApplyDemoScenarios();
+        FinishSetup();
+        Commit();
+        PrepareToday(false);
+    end;
+
+    /// <summary>
+    /// Points the approval demo store's delivery day at today's receipt date, so the large order
+    /// appears when DeliveryPlanner is run today. Can be run again on a later day.
+    /// </summary>
+    procedure PrepareToday(ShowMessage: Boolean)
+    var
+        Store: Record Location;
+        Schedule: Codeunit "DP Delivery Schedule KBS";
+        ReceiptDate: Date;
+    begin
+        Store.Get('DP-BODO');
+        ReceiptDate := Schedule.CalcReceiptDate(HubTok, Store.Code, Today());
+        Store."DP Delivery Monday KBS" := false;
+        Store."DP Delivery Tuesday KBS" := false;
+        Store."DP Delivery Wednesday KBS" := false;
+        Store."DP Delivery Thursday KBS" := false;
+        Store."DP Delivery Friday KBS" := false;
+        Store."DP Delivery Saturday KBS" := false;
+        Store."DP Delivery Sunday KBS" := false;
+        SetDeliveryWeekday(Store, Date2DWY(ReceiptDate, 1));
+        SetDeliveryWeekday(Store, ((Date2DWY(ReceiptDate, 1) + 2) mod 7) + 1);
+        Store.Modify(true);
+        if ShowMessage then
+            Message(PreparedMsg, Store.Name, ReceiptDate);
+    end;
+
+    local procedure CheckPrerequisites()
+    var
+        Item: Record Item;
+        GLSetup: Record "General Ledger Setup";
+        UserSetup: Record "User Setup";
+        UnitOfMeasure: Record "Unit of Measure";
+        Earliest: Date;
+    begin
+        Earliest := Today() - 113;
+        if GLSetup.Get() then
+            if (GLSetup."Allow Posting From" <> 0D) and (GLSetup."Allow Posting From" > Earliest) then
+                Error(AllowPostingErr, Earliest);
+        if UserSetup.Get(UserId()) then
+            if (UserSetup."Allow Posting From" <> 0D) and (UserSetup."Allow Posting From" > Earliest) then
+                Error(AllowPostingErr, Earliest);
+
+        Item.SetRange(Type, Item.Type::Inventory);
+        Item.SetFilter("Inventory Posting Group", '<>%1', '');
+        Item.SetFilter("Gen. Prod. Posting Group", '<>%1', '');
+        if not Item.FindFirst() then
+            Error(NoTemplateItemErr);
+        TemplateGenProdGroup := Item."Gen. Prod. Posting Group";
+        TemplateVATProdGroup := Item."VAT Prod. Posting Group";
+        TemplateInvtGroup := Item."Inventory Posting Group";
+        TemplateTaxGroup := Item."Tax Group Code";
+
+        BaseUoM := 'STK';
+        if not UnitOfMeasure.Get(BaseUoM) then
+            if UnitOfMeasure.Get('PCS') then
+                BaseUoM := 'PCS'
+            else begin
+                UnitOfMeasure.Init();
+                UnitOfMeasure.Code := BaseUoM;
+                UnitOfMeasure.Description := 'Stykk';
+                UnitOfMeasure.Insert(true);
+            end;
+    end;
+
+    local procedure DefineStores()
+    begin
+        // Code; name; category; north; delivery days Mon..Sun (all zero = every night)
+        AddStore(1, 'DP-OSLO', 'Oslo', 'LARGE', false, '1111100');
+        AddStore(2, 'DP-BERGEN', 'Bergen', 'LARGE', false, '1010100');
+        AddStore(3, 'DP-STAVANG', 'Stavanger', 'LARGE', false, '0101010');
+        AddStore(4, 'DP-TRONDH', 'Trondheim', 'LARGE', true, '1001000');
+        AddStore(5, 'DP-TROMSO', 'Tromsø', 'LARGE', true, '0100100');
+        AddStore(6, 'DP-DRAMMEN', 'Drammen', 'MEDIUM', false, '1010100');
+        AddStore(7, 'DP-KRSAND', 'Kristiansand', 'MEDIUM', false, '0101000');
+        AddStore(8, 'DP-FREDRIK', 'Fredrikstad', 'MEDIUM', false, '0000000');
+        AddStore(9, 'DP-BODO', 'Bodø', 'MEDIUM', true, '1000100');
+        AddStore(10, 'DP-HAMAR', 'Hamar', 'MEDIUM', false, '0010010');
+        AddStore(11, 'DP-GJOVIK', 'Gjøvik', 'SMALL', false, '0100100');
+        AddStore(12, 'DP-NARVIK', 'Narvik', 'SMALL', true, '0010000');
+        AddStore(13, 'DP-HARSTAD', 'Harstad', 'SMALL', true, '1000000');
+        AddStore(14, 'DP-ALTA', 'Alta', 'SMALL', true, '0001000');
+        AddStore(15, 'DP-MORANA', 'Mo i Rana', 'SMALL', true, '0000000');
+    end;
+
+    local procedure AddStore(Index: Integer; Code: Code[10]; Name: Text[50]; Category: Code[10]; North: Boolean; Days: Text[7])
+    begin
+        StoreCode[Index] := Code;
+        StoreName[Index] := Name;
+        StoreCategory[Index] := Category;
+        StoreNorth[Index] := North;
+        StoreDays[Index] := Days;
+        case Category of
+            'LARGE':
+                StoreFactor[Index] := 1;
+            'MEDIUM':
+                StoreFactor[Index] := 0.6;
+            else
+                StoreFactor[Index] := 0.35;
+        end;
+        if North then
+            StoreFactor[Index] := StoreFactor[Index] * 0.85;
+    end;
+
+    local procedure DefineItems()
+    var
+        Names: List of [Text];
+        Idx: Integer;
+    begin
+        Names := ItemNames().Split('|');
+        for Idx := 1 to 80 do begin
+            ItemNo[Idx] := CopyStr('DPV-' + PadNumber(Idx), 1, 20);
+            // Popular items first: about 12 per day in a large store, down to under 1.
+            ItemRate[Idx] := Round(12 * Power(0.94, Idx - 1) + 0.25, 0.01);
+            ItemPack[Idx] := 1;
+            if Idx mod 5 = 0 then
+                ItemPack[Idx] := 6;
+            if Idx mod 7 = 0 then
+                ItemPack[Idx] := 12;
+            ItemCost[Idx] := 20 + ((Idx * 37) mod 380);
+            case (Idx - 1) div 16 of
+                0:
+                    ItemCategoryOf[Idx] := 'DP-MAT';
+                1:
+                    ItemCategoryOf[Idx] := 'DP-DRIKKE';
+                2:
+                    ItemCategoryOf[Idx] := 'DP-HUS';
+                3:
+                    ItemCategoryOf[Idx] := 'DP-HAGE';
+                else
+                    ItemCategoryOf[Idx] := 'DP-SESONG';
+            end;
+        end;
+        if Names.Count() <> 80 then
+            Error('Internal error: expected 80 item names, found %1.', Names.Count());
+    end;
+
+    local procedure CreateLocationsAndRoutes()
+    var
+        ShippingAgent: Record "Shipping Agent";
+        Route: Record "Transfer Route";
+        Idx: Integer;
+    begin
+        CreateLocation(HubTok, 'DeliveryPlanner hovedlager', false);
+        CreateLocation(TransitTok, 'DeliveryPlanner transitt', true);
+
+        ShippingAgent.Init();
+        ShippingAgent.Code := AgentTok;
+        ShippingAgent.Name := 'DeliveryPlanner demotransport';
+        ShippingAgent.Insert(true);
+        CreateService(SouthServiceTok, 'Sør – 1 dag', '<1D>');
+        CreateService(NorthServiceTok, 'Nord – 3 dager', '<3D>');
+
+        for Idx := 1 to 15 do begin
+            CreateLocation(StoreCode[Idx], StoreName[Idx], false);
+            Route.Init();
+            Route."Transfer-from Code" := HubTok;
+            Route."Transfer-to Code" := StoreCode[Idx];
+            Route.Insert(true);
+            Route.Validate("In-Transit Code", TransitTok);
+            Route.Validate("Shipping Agent Code", AgentTok);
+            if StoreNorth[Idx] then
+                Route.Validate("Shipping Agent Service Code", NorthServiceTok)
+            else
+                Route.Validate("Shipping Agent Service Code", SouthServiceTok);
+            Route.Modify(true);
+        end;
+    end;
+
+    local procedure CreateService(ServiceCode: Code[10]; Description: Text[100]; ShippingTime: Text)
+    var
+        ShippingAgentServices: Record "Shipping Agent Services";
+    begin
+        ShippingAgentServices.Init();
+        ShippingAgentServices."Shipping Agent Code" := AgentTok;
+        ShippingAgentServices.Code := ServiceCode;
+        ShippingAgentServices.Description := Description;
+        Evaluate(ShippingAgentServices."Shipping Time", ShippingTime);
+        ShippingAgentServices.Insert(true);
+    end;
+
+    local procedure CreateLocation(LocationCode: Code[10]; LocationName: Text[100]; InTransit: Boolean)
+    var
+        Location: Record Location;
+        TemplateSetup: Record "Inventory Posting Setup";
+        PostingSetup: Record "Inventory Posting Setup";
+    begin
+        Location.Init();
+        Location.Validate(Code, LocationCode);
+        Location.Insert(true);
+        Location.Validate(Name, CopyStr(LocationName, 1, MaxStrLen(Location.Name)));
+        Location.Validate("Use As In-Transit", InTransit);
+        Location.Modify(true);
+
+        // New locations need their own inventory posting setup; copy the accounts of an existing one.
+        TemplateSetup.SetRange("Invt. Posting Group Code", TemplateInvtGroup);
+        if TemplateSetup.FindFirst() then
+            if not PostingSetup.Get(LocationCode, TemplateInvtGroup) then begin
+                PostingSetup := TemplateSetup;
+                PostingSetup."Location Code" := LocationCode;
+                PostingSetup.Insert(true);
+            end;
+    end;
+
+    local procedure CreateItems()
+    var
+        Item: Record Item;
+        ItemUnitOfMeasure: Record "Item Unit of Measure";
+        Names: List of [Text];
+        Idx: Integer;
+        SizeFactor: Decimal;
+    begin
+        CreateCategory('DP-MAT', 'Mat og kolonial');
+        CreateCategory('DP-DRIKKE', 'Drikke');
+        CreateCategory('DP-HUS', 'Hus og hjem');
+        CreateCategory('DP-HAGE', 'Hage og fritid');
+        CreateCategory('DP-SESONG', 'Sesongvarer');
+        Names := ItemNames().Split('|');
+        for Idx := 1 to 80 do begin
+            Item.Init();
+            Item."No." := ItemNo[Idx];
+            Item.Insert(true);
+            Item.Validate(Description, CopyStr(Names.Get(Idx), 1, MaxStrLen(Item.Description)));
+            Item.Validate(Type, Item.Type::Inventory);
+            if not ItemUnitOfMeasure.Get(Item."No.", BaseUoM) then begin
+                ItemUnitOfMeasure.Init();
+                ItemUnitOfMeasure."Item No." := Item."No.";
+                ItemUnitOfMeasure.Code := BaseUoM;
+                ItemUnitOfMeasure."Qty. per Unit of Measure" := 1;
+                ItemUnitOfMeasure."Qty. Rounding Precision" := 1;
+                ItemUnitOfMeasure.Insert(true);
+            end;
+            Item.Validate("Base Unit of Measure", BaseUoM);
+            Item.Validate("Gen. Prod. Posting Group", TemplateGenProdGroup);
+            if TemplateVATProdGroup <> '' then
+                Item.Validate("VAT Prod. Posting Group", TemplateVATProdGroup);
+            Item.Validate("Inventory Posting Group", TemplateInvtGroup);
+            if TemplateTaxGroup <> '' then
+                Item.Validate("Tax Group Code", TemplateTaxGroup);
+            Item.Validate("Item Category Code", ItemCategoryOf[Idx]);
+            Item.Validate("Unit Cost", ItemCost[Idx]);
+            Item.Validate("Unit Price", Round(ItemCost[Idx] * 1.8, 1));
+            // Assortment: small stores carry the 30 best sellers, medium 55, large all 80.
+            SizeFactor := (MaxCoverage() + 5) * ItemRate[Idx];
+            if Idx <= 30 then
+                Item."DP Max. Inv. Small KBS" := RoundUpToPack(SizeFactor * 0.35, ItemPack[Idx]);
+            if Idx <= 55 then
+                Item."DP Max. Inv. Medium KBS" := RoundUpToPack(SizeFactor * 0.6, ItemPack[Idx]);
+            Item."DP Max. Inv. Large KBS" := RoundUpToPack(SizeFactor, ItemPack[Idx]);
+            Item.Modify(true);
+            if IsVariantItem(Idx) then begin
+                CreateVariant(Item."No.", 'S', 'Liten');
+                CreateVariant(Item."No.", 'M', 'Medium');
+                CreateVariant(Item."No.", 'L', 'Stor');
+            end;
+        end;
+    end;
+
+    local procedure CreateCategory(CategoryCode: Code[20]; Description: Text[100])
+    var
+        ItemCategory: Record "Item Category";
+    begin
+        if ItemCategory.Get(CategoryCode) then
+            exit;
+        ItemCategory.Init();
+        ItemCategory.Code := CategoryCode;
+        ItemCategory.Description := Description;
+        ItemCategory.Insert(true);
+    end;
+
+    local procedure CreateVariant(No: Code[20]; VariantCode: Code[10]; Description: Text[100])
+    var
+        ItemVariant: Record "Item Variant";
+    begin
+        ItemVariant.Init();
+        ItemVariant."Item No." := No;
+        ItemVariant.Code := VariantCode;
+        ItemVariant.Description := Description;
+        ItemVariant.Insert(true);
+    end;
+
+    local procedure CreateAssortment()
+    var
+        Setup: Record "DP Setup KBS";
+        Store: Record Location;
+        SKU: Record "Stockkeeping Unit";
+        Management: Codeunit "DP Management KBS";
+        Idx: Integer;
+    begin
+        Management.CreateDefaults();
+        Setup.Get('');
+        Setup.Validate("Hub Location Code", HubTok);
+        Setup.Modify(true);
+        for Idx := 1 to 15 do begin
+            Store.Get(StoreCode[Idx]);
+            Store.Validate("DP Category Code KBS", StoreCategory[Idx]);
+            Store.Validate("DP Enabled KBS", true);
+            SetDeliveryDays(Store, StoreDays[Idx]);
+            Store.Modify(true);
+        end;
+        // Same path a customer would use: item card maximums -> "Opprett standardoppsett".
+        Management.CreateDefaults();
+        SKU.SetFilter("Location Code", 'DP-*');
+        SKU.SetFilter("Item No.", 'DPV-*');
+        if SKU.FindSet(true) then
+            repeat
+                SKU.Validate("Order Multiple", ItemPack[ItemIndex(SKU."Item No.")]);
+                if NextRandom() < 0.25 then
+                    SKU.Validate("Safety Stock Quantity", Round(SKU."Maximum Inventory" * 0.15, 1, '<'));
+                SKU.Validate("DP Enabled KBS", true);
+                SKU.Modify(true);
+            until SKU.Next() = 0;
+    end;
+
+    local procedure CreateHistoryRuns()
+    var
+        RunRecord: Record "DP Run KBS";
+        Day: Integer;
+    begin
+        for Day := HistoryDays - 55 to HistoryDays do begin
+            RunRecord.Init();
+            RunRecord."Run ID" := CreateGuid();
+            RunRecord."Planning Date" := DayDate(Day);
+            RunRecord."Started At" := CreateDateTime(DayDate(Day), 020000T);
+            RunRecord."Create Orders" := true;
+            RunRecord.Status := RunRecord.Status::Completed;
+            RunRecord."User ID" := DemoUserTok;
+            RunRecord."Sales History Days" := 56;
+            RunRecord.Insert(false);
+            RunIdByDay[Day] := RunRecord."Run ID";
+        end;
+    end;
+
+    local procedure SimulateAllSKUs()
+    var
+        SKU: Record "Stockkeeping Unit";
+        StoreIdx: Integer;
+        ItemIdx: Integer;
+        Share: Decimal;
+    begin
+        EnsureJournal();
+        SKU.SetFilter("Location Code", 'DP-*');
+        SKU.SetFilter("Item No.", 'DPV-*');
+        SKU.SetRange("DP Enabled KBS", true);
+        if SKU.FindSet() then
+            repeat
+                StoreIdx := StoreIndex(SKU."Location Code");
+                ItemIdx := ItemIndex(SKU."Item No.");
+                if (StoreIdx > 0) and (ItemIdx > 0) then begin
+                    Share := 1;
+                    if SKU."Variant Code" <> '' then
+                        case SKU."Variant Code" of
+                            'S':
+                                Share := 0.25;
+                            'M':
+                                Share := 0.45;
+                            else
+                                Share := 0.3;
+                        end;
+                    Simulate(StoreIdx, ItemIdx, Share, SKU."Maximum Inventory", SKU."Safety Stock Quantity");
+                    PostSKUHistory(StoreIdx, ItemIdx, SKU."Variant Code");
+                    InsertRunLines(StoreIdx, ItemIdx, SKU);
+                    Commit();
+                end;
+            until SKU.Next() = 0;
+        UpdateRunTotals();
+    end;
+
+    /// <summary>
+    /// Day-by-day simulation of one SKU over 112 days: the night run decides an order (DeliveryPlanner
+    /// logic, simplified), the order arrives after the transport time, and sales are limited by stock.
+    /// </summary>
+    local procedure Simulate(StoreIdx: Integer; ItemIdx: Integer; Share: Decimal; MaxInv: Decimal; SafetyStock: Decimal)
+    var
+        Day: Integer;
+        Window: Integer;
+        Transport: Integer;
+        Stock: Decimal;
+        Demand: Decimal;
+        Pending: Decimal;
+        Position: Decimal;
+        SupplyFactor: Decimal;
+        Lambda: Decimal;
+        WindowStart: Integer;
+        Sold: Decimal;
+        InStockDays: Integer;
+        Night: Date;
+        Arrival: Date;
+        NextArrival: Date;
+    begin
+        Clear(StockStart);
+        Clear(DaySales);
+        Clear(Arrive);
+        Clear(InStock);
+        Clear(NightIncoming);
+        Clear(NightRate);
+        Clear(NightSold);
+        Clear(NightDaysInStock);
+        Clear(NightCoverage);
+        Clear(NightTarget);
+        Clear(NightCapacity);
+        Clear(NightNeed);
+        Clear(NightAlloc);
+        Clear(NightShips);
+        Clear(NightReceipt);
+        Clear(NightNextReceipt);
+        Transport := TransportDays(StoreIdx);
+        Stock := RoundDownToPack(MaxInv * 0.6, ItemPack[ItemIdx]);
+
+        for Day := 1 to HistoryDays do begin
+            // Night run, before the store opens.
+            Night := DayDate(Day);
+            Pending := 0;
+            for Window := Day to Day + Transport do
+                if Window <= 120 then
+                    Pending += Arrive[Window];
+            WindowStart := Day - 56;
+            if WindowStart < 1 then
+                WindowStart := 1;
+            Sold := 0;
+            InStockDays := 0;
+            for Window := WindowStart to Day - 1 do begin
+                Sold += DaySales[Window];
+                if InStock[Window] then
+                    InStockDays += 1;
+            end;
+            NightIncoming[Day] := Pending;
+            NightSold[Day] := Sold;
+            NightDaysInStock[Day] := InStockDays;
+            if Sold > 0 then
+                NightRate[Day] := Sold / Maximum(InStockDays, 14)
+            else
+                NightRate[Day] := ItemRate[ItemIdx] * StoreFactor[StoreIdx] * Share;
+            Arrival := Night + Transport;
+            NightReceipt[Day] := Arrival;
+            NightShips[Day] := IsDeliveryDay(StoreIdx, Arrival);
+            if StoreDays[StoreIdx] = '0000000' then
+                NightCoverage[Day] := CategoryCoverage(StoreIdx)
+            else begin
+                NextArrival := NextDeliveryAfter(StoreIdx, Arrival);
+                NightNextReceipt[Day] := NextArrival;
+                NightCoverage[Day] := NextArrival - Night;
+            end;
+            NightTarget[Day] := Minimum(MaxInv, Maximum(SafetyStock, NightRate[Day] * NightCoverage[Day]));
+            Position := Stock + Pending;
+            NightCapacity[Day] := Maximum(0, MaxInv - Maximum(0, Stock) - Pending);
+            if NightShips[Day] then
+                NightNeed[Day] := RoundDownToPack(Minimum(NightCapacity[Day], Maximum(0, NightTarget[Day] - Position)), ItemPack[ItemIdx]);
+            SupplyFactor := HubSupplyFactor(ItemIdx, Day);
+            NightAlloc[Day] := RoundDownToPack(NightNeed[Day] * SupplyFactor, ItemPack[ItemIdx]);
+            if Day + Transport <= 120 then
+                Arrive[Day + Transport] += NightAlloc[Day];
+
+            // The day itself: receipt first, then sales limited by stock.
+            StockStart[Day] := Stock;
+            Stock += Arrive[Day];
+            Lambda := DemandRate(StoreIdx, ItemIdx, Day) * Share;
+            Demand := Poisson(Lambda);
+            if (Day = HistoryDays) and ClosedYesterday(StoreIdx) then
+                Demand := 0;
+            DaySales[Day] := Minimum(Demand, Maximum(0, Stock));
+            Stock -= DaySales[Day];
+            InStock[Day] := (StockStart[Day] > 0) or (Stock > 0) or (DaySales[Day] > 0);
+        end;
+    end;
+
+    local procedure PostSKUHistory(StoreIdx: Integer; ItemIdx: Integer; VariantCode: Code[10])
+    var
+        FirstDay: Integer;
+        Day: Integer;
+        Remaining: Decimal;
+        Part: Decimal;
+        Transactions: Integer;
+        T: Integer;
+    begin
+        FirstDay := HistoryDays - 55;
+        // Opening stock the day before the posted period.
+        if StockStart[FirstDay] > 0 then
+            PostLine(ItemIdx, VariantCode, StoreCode[StoreIdx], Enum::"Item Journal Entry Type"::"Positive Adjmt.", StockStart[FirstDay], DayDate(FirstDay - 1), StartDocTok);
+        for Day := FirstDay to HistoryDays do begin
+            if Arrive[Day] > 0 then
+                PostLine(ItemIdx, VariantCode, StoreCode[StoreIdx], Enum::"Item Journal Entry Type"::"Positive Adjmt.", Arrive[Day], DayDate(Day), ReceiptDocTok);
+            Remaining := DaySales[Day];
+            if Remaining > 0 then begin
+                // Store sales arrive as individual transactions; keep at most two per day.
+                Transactions := 1;
+                if Remaining >= 4 then
+                    Transactions := 2;
+                for T := 1 to Transactions do begin
+                    if T = Transactions then
+                        Part := Remaining
+                    else
+                        Part := Round(Remaining / 2, 1, '<');
+                    if Part > 0 then
+                        PostLine(ItemIdx, VariantCode, StoreCode[StoreIdx], Enum::"Item Journal Entry Type"::Sale, Part, DayDate(Day), SaleDocTok);
+                    Remaining -= Part;
+                end;
+            end;
+        end;
+    end;
+
+    local procedure InsertRunLines(StoreIdx: Integer; ItemIdx: Integer; SKU: Record "Stockkeeping Unit")
+    var
+        RunLine: Record "DP Run Line KBS";
+        Day: Integer;
+        OrderKey: Text;
+    begin
+        for Day := HistoryDays - 55 to HistoryDays do begin
+            RunLineNo[Day] += 1;
+            RunLine.Init();
+            RunLine."Run ID" := RunIdByDay[Day];
+            RunLine."Entry No." := RunLineNo[Day];
+            RunLine."Planning Date" := DayDate(Day);
+            RunLine."Item No." := SKU."Item No.";
+            RunLine."Variant Code" := SKU."Variant Code";
+            RunLine."Location Code" := SKU."Location Code";
+            RunLine."Category Code" := StoreCategory[StoreIdx];
+            RunLine."Allocation Weight" := CategoryWeight(StoreIdx);
+            RunLine."Order Multiple" := ItemPack[ItemIdx];
+            RunLine."Quantity Precision" := 1;
+            RunLine."Maximum Inventory" := SKU."Maximum Inventory";
+            RunLine.Inventory := StockStart[Day];
+            RunLine."Incoming Quantity" := NightIncoming[Day];
+            RunLine."Sold Quantity" := NightSold[Day];
+            RunLine."Days In Stock" := NightDaysInStock[Day];
+            RunLine."Sold Last Day" := DaySales[Day - 1] > 0;
+            RunLine."Daily Sales" := Round(NightRate[Day], 0.00001);
+            if NightRate[Day] > 0 then
+                RunLine."Days of Cover" := Round(Maximum(0, StockStart[Day] + NightIncoming[Day]) / NightRate[Day], 0.1);
+            RunLine."Ships Now" := NightShips[Day];
+            RunLine."Receipt Date" := NightReceipt[Day];
+            RunLine."Next Receipt Date" := NightNextReceipt[Day];
+            RunLine."Coverage Days" := NightCoverage[Day];
+            RunLine."Target Quantity" := Round(NightTarget[Day], 0.00001);
+            RunLine."Capacity Quantity" := NightCapacity[Day];
+            RunLine."Need Quantity" := NightNeed[Day];
+            RunLine."Suggested Quantity" := NightNeed[Day];
+            RunLine."Allocated Quantity" := NightAlloc[Day];
+            RunLine."Unmet Quantity" := NightNeed[Day] - NightAlloc[Day];
+            if not NightShips[Day] then
+                RunLine.Reason := 'Ingen levering fra denne kjøringen.'
+            else
+                if RunLine."Unmet Quantity" > 0 then
+                    RunLine.Reason := 'Hovedlageret hadde for lite.';
+            RunLine.UpdateException();
+            RunLine.Insert(false);
+            RunLineCount[Day] += 1;
+            if NightAlloc[Day] > 0 then begin
+                OrderKey := StoreCode[StoreIdx] + '|' + Format(Day);
+                if StoreOrderQty.ContainsKey(OrderKey) then
+                    StoreOrderQty.Set(OrderKey, StoreOrderQty.Get(OrderKey) + NightAlloc[Day])
+                else
+                    StoreOrderQty.Add(OrderKey, NightAlloc[Day]);
+            end;
+        end;
+    end;
+
+    local procedure UpdateRunTotals()
+    var
+        RunRecord: Record "DP Run KBS";
+        Day: Integer;
+        StoreIdx: Integer;
+    begin
+        for Day := HistoryDays - 55 to HistoryDays do begin
+            RunRecord.Get(RunIdByDay[Day]);
+            RunRecord."Line Count" := RunLineCount[Day];
+            for StoreIdx := 1 to 15 do
+                if StoreOrderQty.ContainsKey(StoreCode[StoreIdx] + '|' + Format(Day)) then
+                    RunOrderCount[Day] += 1;
+            RunRecord."Orders Created" := RunOrderCount[Day];
+            RunRecord."Stores Checked" := 15;
+            if Day = HistoryDays then
+                RunRecord."Stores Without Sales" := 3;
+            RunRecord."Snapshot Duration" := 60000 + (Day * 977) mod 90000;
+            RunRecord."Planning Duration" := 120000 + (Day * 1931) mod 120000;
+            RunRecord."Order Duration" := 30000 + (Day * 613) mod 40000;
+            RunRecord."Finished At" := RunRecord."Started At" + RunRecord."Snapshot Duration" + RunRecord."Planning Duration" + RunRecord."Order Duration";
+            RunRecord.Modify(false);
+        end;
+    end;
+
+    local procedure CreateStoreOrders()
+    var
+        StoreOrder: Record "DP Store Order KBS";
+        Day: Integer;
+        StoreIdx: Integer;
+        OrderKey: Text;
+        Counter: Integer;
+    begin
+        for Day := HistoryDays - 55 to HistoryDays do
+            for StoreIdx := 1 to 15 do begin
+                OrderKey := StoreCode[StoreIdx] + '|' + Format(Day);
+                if StoreOrderQty.ContainsKey(OrderKey) then begin
+                    Counter += 1;
+                    StoreOrder.Init();
+                    StoreOrder."Run ID" := RunIdByDay[Day];
+                    StoreOrder."Location Code" := StoreCode[StoreIdx];
+                    StoreOrder."Transfer Order No." := CopyStr('DEMO-' + PadNumber(Counter), 1, 20);
+                    StoreOrder."Planning Date" := DayDate(Day);
+                    StoreOrder.Quantity := StoreOrderQty.Get(OrderKey);
+                    StoreOrder."Approval Status" := StoreOrder."Approval Status"::None;
+                    StoreOrder.Insert(true);
+                end;
+            end;
+    end;
+
+    local procedure PostHubStock()
+    var
+        SKU: Record "Stockkeeping Unit";
+        Idx: Integer;
+        Total: Decimal;
+        Factor: Decimal;
+    begin
+        for Idx := 1 to 80 do begin
+            Total := 0;
+            SKU.SetRange("Item No.", ItemNo[Idx]);
+            SKU.SetFilter("Location Code", 'DP-*');
+            SKU.CalcSums("Maximum Inventory");
+            Total := SKU."Maximum Inventory";
+            Factor := 1.5;
+            if IsShortItem(Idx) then
+                Factor := 0.2;
+            if IsZeroHubItem(Idx) then
+                Factor := 0;
+            if IsVariantItem(Idx) then begin
+                PostLine(Idx, 'S', HubTok, Enum::"Item Journal Entry Type"::"Positive Adjmt.", RoundUpToPack(Total * Factor * 0.25, ItemPack[Idx]), Today() - 1, StartDocTok);
+                PostLine(Idx, 'M', HubTok, Enum::"Item Journal Entry Type"::"Positive Adjmt.", RoundUpToPack(Total * Factor * 0.45, ItemPack[Idx]), Today() - 1, StartDocTok);
+                PostLine(Idx, 'L', HubTok, Enum::"Item Journal Entry Type"::"Positive Adjmt.", RoundUpToPack(Total * Factor * 0.3, ItemPack[Idx]), Today() - 1, StartDocTok);
+            end else
+                if Factor > 0 then
+                    PostLine(Idx, '', HubTok, Enum::"Item Journal Entry Type"::"Positive Adjmt.", RoundUpToPack(Total * Factor, ItemPack[Idx]), Today() - 1, StartDocTok);
+            Commit();
+        end;
+    end;
+
+    local procedure ApplyDemoScenarios()
+    var
+        SKU: Record "Stockkeeping Unit";
+        Item: Record Item;
+        Inventory: Codeunit "DP Inventory KBS";
+        Idx: Integer;
+        OnHand: Decimal;
+    begin
+        // Over maximum: three items in Hamar get more stock than the shelf allows.
+        for Idx := 2 to 6 do
+            if Idx mod 2 = 0 then
+                if SKU.Get('DP-HAMAR', ItemNo[Idx], '') then begin
+                    OnHand := Inventory.GetInventory(SKU."Item No.", '', SKU."Location Code");
+                    if SKU."Maximum Inventory" * 1.5 > OnHand then
+                        PostLine(Idx, '', SKU."Location Code", Enum::"Item Journal Entry Type"::"Positive Adjmt.", Round(SKU."Maximum Inventory" * 1.5 - OnHand, 1, '>'), Today() - 1, ReceiptDocTok);
+                end;
+
+        // Approval: Bodø gets four times the shelf space on its 15 best sellers, so today's order is far above its history.
+        for Idx := 1 to 15 do
+            if SKU.Get('DP-BODO', ItemNo[Idx], '') then begin
+                SKU.Validate("Maximum Inventory", SKU."Maximum Inventory" * 4);
+                SKU.Modify(true);
+            end;
+
+        // Missing setup: zero maximum on one SKU in Alta.
+        if SKU.Get('DP-ALTA', ItemNo[10], '') then begin
+            SKU.Validate("Safety Stock Quantity", 0);
+            SKU.Validate("Maximum Inventory", 0);
+            SKU.Modify(true);
+        end;
+
+        // Blocked item.
+        Item.Get(ItemNo[78]);
+        Item.Validate(Blocked, true);
+        Item.Modify(true);
+    end;
+
+    local procedure FinishSetup()
+    var
+        Setup: Record "DP Setup KBS";
+    begin
+        Setup.Get('');
+        Setup.Validate(Enabled, true);
+        Setup."Sales Alert %" := 50;
+        Setup.Modify(true);
+    end;
+
+    local procedure PostLine(ItemIdx: Integer; VariantCode: Code[10]; LocationCode: Code[10]; EntryType: Enum "Item Journal Entry Type"; Quantity: Decimal; PostingDate: Date; DocumentNo: Code[20])
+    var
+        ItemJournalLine: Record "Item Journal Line";
+        ItemJnlPostLine: Codeunit "Item Jnl.-Post Line";
+    begin
+        if Quantity <= 0 then
+            exit;
+        ItemJournalLine.Init();
+        ItemJournalLine."Journal Template Name" := JournalTemplateTok;
+        ItemJournalLine."Journal Batch Name" := JournalBatchTok;
+        ItemJournalLine."Line No." := 10000;
+        ItemJournalLine.Validate("Posting Date", PostingDate);
+        ItemJournalLine.Validate("Entry Type", EntryType);
+        ItemJournalLine.Validate("Document No.", DocumentNo);
+        ItemJournalLine.Validate("Item No.", ItemNo[ItemIdx]);
+        if VariantCode <> '' then
+            ItemJournalLine.Validate("Variant Code", VariantCode);
+        ItemJournalLine.Validate("Location Code", LocationCode);
+        ItemJournalLine.Validate(Quantity, Quantity);
+        if EntryType = EntryType::"Positive Adjmt." then
+            ItemJournalLine.Validate("Unit Amount", ItemCost[ItemIdx]);
+        ItemJnlPostLine.RunWithCheck(ItemJournalLine);
+    end;
+
+    local procedure EnsureJournal()
+    var
+        ItemJournalTemplate: Record "Item Journal Template";
+        ItemJournalBatch: Record "Item Journal Batch";
+    begin
+        if not ItemJournalTemplate.Get(JournalTemplateTok) then begin
+            ItemJournalTemplate.Init();
+            ItemJournalTemplate.Name := JournalTemplateTok;
+            ItemJournalTemplate.Description := 'DeliveryPlanner demodata';
+            ItemJournalTemplate.Type := ItemJournalTemplate.Type::Item;
+            ItemJournalTemplate.Insert(true);
+        end;
+        if not ItemJournalBatch.Get(JournalTemplateTok, JournalBatchTok) then begin
+            ItemJournalBatch.Init();
+            ItemJournalBatch."Journal Template Name" := JournalTemplateTok;
+            ItemJournalBatch.Name := JournalBatchTok;
+            ItemJournalBatch.Description := 'DeliveryPlanner demodata';
+            ItemJournalBatch.Insert(true);
+        end;
+    end;
+
+    local procedure DemandRate(StoreIdx: Integer; ItemIdx: Integer; Day: Integer): Decimal
+    var
+        Rate: Decimal;
+        Weekday: Integer;
+    begin
+        Rate := ItemRate[ItemIdx] * StoreFactor[StoreIdx];
+        case ItemIdx of
+            7, 23, 41, 58:
+                Rate := Rate * (0.6 + 0.8 * Day / HistoryDays);
+            12, 33, 61:
+                Rate := Rate * (1.4 - 0.8 * Day / HistoryDays);
+            15, 47:
+                if (Day >= 80) and (Day <= 86) then
+                    Rate := Rate * 4;
+            70, 75:
+                if Day < 100 then
+                    Rate := 0;
+        end;
+        if (ItemCategoryOf[ItemIdx] = 'DP-SESONG') and (Day > HistoryDays - 14) then
+            Rate := Rate * 2.5;
+        Weekday := Date2DWY(DayDate(Day), 1);
+        case Weekday of
+            5:
+                Rate := Rate * 1.2;
+            6:
+                Rate := Rate * 1.4;
+            7:
+                Rate := Rate * 0.4;
+        end;
+        exit(Rate);
+    end;
+
+    local procedure HubSupplyFactor(ItemIdx: Integer; Day: Integer): Decimal
+    begin
+        // Shortage items improve over the period, so availability trends upward in the report.
+        if IsZeroHubItem(ItemIdx) then
+            if Day < HistoryDays - 28 then
+                exit(0.3)
+            else
+                exit(0.6);
+        if IsShortItem(ItemIdx) then
+            if Day < HistoryDays - 28 then
+                exit(0.45)
+            else
+                exit(0.75);
+        if NextRandom() < 0.03 then
+            exit(0);
+        exit(1);
+    end;
+
+    local procedure Poisson(Lambda: Decimal): Decimal
+    var
+        L: Decimal;
+        P: Decimal;
+        K: Integer;
+        Sum: Decimal;
+        I: Integer;
+    begin
+        if Lambda <= 0 then
+            exit(0);
+        if Lambda > 20 then begin
+            for I := 1 to 12 do
+                Sum += NextRandom();
+            exit(Maximum(0, Round(Lambda + Power(Lambda, 0.5) * (Sum - 6), 1)));
+        end;
+        L := Power(2.718281828, -Lambda);
+        P := 1;
+        repeat
+            K += 1;
+            P := P * NextRandom();
+        until P <= L;
+        exit(K - 1);
+    end;
+
+    local procedure NextRandom(): Decimal
+    begin
+        Seed := (Seed * 1103515245L + 12345L) mod 2147483648L;
+        exit(Seed / 2147483648L);
+    end;
+
+    local procedure DayDate(Day: Integer): Date
+    begin
+        exit(Today() - (HistoryDays + 1) + Day);
+    end;
+
+    local procedure TransportDays(StoreIdx: Integer): Integer
+    begin
+        if StoreNorth[StoreIdx] then
+            exit(3);
+        exit(1);
+    end;
+
+    local procedure IsDeliveryDay(StoreIdx: Integer; ReceiptDate: Date): Boolean
+    begin
+        if StoreDays[StoreIdx] = '0000000' then
+            exit(true);
+        exit(CopyStr(StoreDays[StoreIdx], Date2DWY(ReceiptDate, 1), 1) = '1');
+    end;
+
+    local procedure NextDeliveryAfter(StoreIdx: Integer; FromDate: Date): Date
+    var
+        Offset: Integer;
+    begin
+        for Offset := 1 to 14 do
+            if IsDeliveryDay(StoreIdx, FromDate + Offset) then
+                exit(FromDate + Offset);
+        exit(FromDate + 7);
+    end;
+
+    local procedure ClosedYesterday(StoreIdx: Integer): Boolean
+    begin
+        exit(StoreIdx in [11, 12, 14]);
+    end;
+
+    local procedure CategoryCoverage(StoreIdx: Integer): Integer
+    begin
+        case StoreCategory[StoreIdx] of
+            'LARGE':
+                exit(21);
+            'MEDIUM':
+                exit(14);
+        end;
+        exit(7);
+    end;
+
+    local procedure CategoryWeight(StoreIdx: Integer): Decimal
+    begin
+        case StoreCategory[StoreIdx] of
+            'LARGE':
+                exit(3);
+            'MEDIUM':
+                exit(2);
+        end;
+        exit(1);
+    end;
+
+    local procedure MaxCoverage(): Integer
+    begin
+        exit(7);
+    end;
+
+    local procedure IsShortItem(Idx: Integer): Boolean
+    begin
+        exit(Idx in [3, 9, 18, 27, 36, 52]);
+    end;
+
+    local procedure IsZeroHubItem(Idx: Integer): Boolean
+    begin
+        exit(Idx in [44, 66]);
+    end;
+
+    local procedure IsVariantItem(Idx: Integer): Boolean
+    begin
+        exit(Idx in [35, 40, 46]);
+    end;
+
+    local procedure StoreIndex(LocationCode: Code[10]): Integer
+    var
+        Idx: Integer;
+    begin
+        for Idx := 1 to 15 do
+            if StoreCode[Idx] = LocationCode then
+                exit(Idx);
+        exit(0);
+    end;
+
+    local procedure ItemIndex(No: Code[20]): Integer
+    var
+        Idx: Integer;
+    begin
+        if CopyStr(No, 1, 4) <> 'DPV-' then
+            exit(0);
+        if not Evaluate(Idx, CopyStr(No, 5)) then
+            exit(0);
+        exit(Idx);
+    end;
+
+    local procedure SetDeliveryDays(var Store: Record Location; Days: Text[7])
+    var
+        Weekday: Integer;
+    begin
+        for Weekday := 1 to 7 do
+            if CopyStr(Days, Weekday, 1) = '1' then
+                SetDeliveryWeekday(Store, Weekday);
+    end;
+
+    local procedure SetDeliveryWeekday(var Store: Record Location; Weekday: Integer)
+    begin
+        case Weekday of
+            1:
+                Store."DP Delivery Monday KBS" := true;
+            2:
+                Store."DP Delivery Tuesday KBS" := true;
+            3:
+                Store."DP Delivery Wednesday KBS" := true;
+            4:
+                Store."DP Delivery Thursday KBS" := true;
+            5:
+                Store."DP Delivery Friday KBS" := true;
+            6:
+                Store."DP Delivery Saturday KBS" := true;
+            7:
+                Store."DP Delivery Sunday KBS" := true;
+        end;
+    end;
+
+    local procedure RoundUpToPack(Quantity: Decimal; Pack: Decimal): Decimal
+    begin
+        if Pack <= 0 then
+            Pack := 1;
+        exit(Maximum(Pack, Round(Quantity, Pack, '>')));
+    end;
+
+    local procedure RoundDownToPack(Quantity: Decimal; Pack: Decimal): Decimal
+    begin
+        if Pack <= 0 then
+            Pack := 1;
+        if Quantity <= 0 then
+            exit(0);
+        exit(Round(Quantity, Pack, '<'));
+    end;
+
+    local procedure PadNumber(Number: Integer): Text
+    begin
+        exit(PadStr('', 3 - StrLen(Format(Number)), '0') + Format(Number));
+    end;
+
+    local procedure Minimum(Left: Decimal; Right: Decimal): Decimal
+    begin
+        if Left < Right then
+            exit(Left);
+        exit(Right);
+    end;
+
+    local procedure Maximum(Left: Decimal; Right: Decimal): Decimal
+    begin
+        if Left > Right then
+            exit(Left);
+        exit(Right);
+    end;
+
+    local procedure ItemNames(): Text
+    begin
+        exit(
+            'Kaffe filtermalt 500 g|Melk lett 1 l|Brød grovt|Smør 250 g|Egg 12 stk|Ost norvegia 1 kg|Pasta penne 500 g|Ris jasmin 1 kg|' +
+            'Havregryn 1 kg|Tomatsaus 400 g|Knekkebrød|Leverpostei|Syltetøy jordbær|Mel hvete 2 kg|Sukker 1 kg|Kjeks havre|' +
+            'Mineralvann 1,5 l|Brus cola 0,5 l|Juice appelsin 1 l|Kaffe espresso bønner|Te grønn 20 pk|Saft solbær|Energidrikk|Iste fersken|' +
+            'Kakao 500 g|Vann boks 24 pk|Smoothie mango|Kombucha|Tonic 6 pk|Sportsdrikk|Juice eple 1 l|Melk havre 1 l|' +
+            'Oppvaskmiddel|Toalettpapir 8 pk|Tørkepapir 4 pk|Vaskemiddel 2 l|Arbeidshansker|Batterier AA 8 pk|Lyspære LED|Søppelsekker|' +
+            'Stearinlys 10 pk|Håndsåpe|Kluter 5 pk|Oppvaskbørste|Allrengjøring|Skurekluter|Tørkerull industri|Frysepose|' +
+            'Grillkull 5 kg|Plantejord 50 l|Gjødsel 3 kg|Hageslange 20 m|Blomsterpotte|Myggspray|Solkrem SPF30|Termos 1 l|' +
+            'Campingstol|Kjølebag|Fuglefrø 2 kg|Ugressmiddel|Hagehansker|Tennvæske|Lommelykt|Paraply|' +
+            'Isskrape|Spylervæske vinter 4 l|Strøsand 20 kg|Refleksvest|Vintervotter|Ullsokker|Lue strikk|Skismøring|' +
+            'Julelys LED|Pepperkaker|Gløgg 1 l|Adventskalender|Gavepapir|Julestjerne|Brodder|Varmepose');
+    end;
+}

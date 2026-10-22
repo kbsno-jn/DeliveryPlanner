@@ -5,8 +5,8 @@
     "x": 950,
     "y": 0,
     "z": 27000,
-    "width": 320,
     "height": 70,
+    "width": 320,
     "tabOrder": 27000
   },
   "visual": {
@@ -27,13 +27,13 @@
                 }
               },
               "queryRef": "Vare.Varekategori",
-              "nativeQueryRef": "Varekategori"
+              "nativeQueryRef": "Varekategori",
+              "active": true
             }
           ]
         }
       }
     },
-    "drillFilterOtherVisuals": true,
     "objects": {
       "data": [
         {
@@ -70,6 +70,7 @@
           }
         }
       ]
-    }
+    },
+    "drillFilterOtherVisuals": true
   }
 }

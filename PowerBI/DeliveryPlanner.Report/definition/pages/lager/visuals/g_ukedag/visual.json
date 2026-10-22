@@ -5,8 +5,8 @@
     "x": 0,
     "y": 200,
     "z": 32000,
-    "width": 630,
     "height": 260,
+    "width": 630,
     "tabOrder": 32000
   },
   "visual": {
@@ -27,25 +27,8 @@
                 }
               },
               "queryRef": "Dato.Ukedag",
-              "nativeQueryRef": "Ukedag"
-            }
-          ]
-        },
-        "Y": {
-          "projections": [
-            {
-              "field": {
-                "Measure": {
-                  "Expression": {
-                    "SourceRef": {
-                      "Entity": "_Mål"
-                    }
-                  },
-                  "Property": "Enheter sendt"
-                }
-              },
-              "queryRef": "_Mål.Enheter sendt",
-              "nativeQueryRef": "Enheter sendt"
+              "nativeQueryRef": "Ukedag",
+              "active": true
             }
           ]
         },
@@ -66,10 +49,27 @@
               "nativeQueryRef": "Butikk"
             }
           ]
+        },
+        "Y": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Mål"
+                    }
+                  },
+                  "Property": "Enheter sendt"
+                }
+              },
+              "queryRef": "_Mål.Enheter sendt",
+              "nativeQueryRef": "Enheter sendt"
+            }
+          ]
         }
       }
     },
-    "drillFilterOtherVisuals": true,
     "visualContainerObjects": {
       "title": [
         {
@@ -91,6 +91,7 @@
           }
         }
       ]
-    }
+    },
+    "drillFilterOtherVisuals": true
   }
 }

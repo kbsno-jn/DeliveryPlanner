@@ -1,22 +1,28 @@
 table Butikkordre
+	lineageTag: c92d5958-735a-472b-bc91-a62dad408d8d
 
 	column Planleggingsdato
 		dataType: dateTime
 		formatString: dd.mm.yyyy
+		lineageTag: 8bc08595-70ec-4aed-b31f-cd9960905187
 		summarizeBy: none
 		sourceColumn: planningDate
 
 		annotation SummarizationSetBy = User
 
+		annotation UnderlyingDateTimeDataType = Date
+
 	column Butikkode
 		dataType: string
+		lineageTag: a3ad49c1-86a1-4aca-b399-d656f14ce93f
 		summarizeBy: none
 		sourceColumn: locationCode
 
 		annotation SummarizationSetBy = User
 
-	column 'Overføringsordre'
+	column Overføringsordre
 		dataType: string
+		lineageTag: 256c2106-c60f-46dd-af2d-08fce0962d60
 		summarizeBy: none
 		sourceColumn: transferOrderNumber
 
@@ -25,6 +31,7 @@ table Butikkordre
 	column Antall
 		dataType: double
 		formatString: #,0.##
+		lineageTag: 568b2b81-d50d-4dbf-819b-d863f70676ca
 		summarizeBy: sum
 		sourceColumn: quantity
 
@@ -33,6 +40,7 @@ table Butikkordre
 	column 'Snitt siste ordrer'
 		dataType: double
 		formatString: #,0.##
+		lineageTag: 1b25e444-3f91-4b75-8045-556d4d7b87e4
 		summarizeBy: sum
 		sourceColumn: averageQuantity
 
@@ -41,6 +49,7 @@ table Butikkordre
 	column Godkjenningskode
 		dataType: string
 		isHidden
+		lineageTag: 4c7881fd-53b7-4b0e-974b-0906b17ec36c
 		summarizeBy: none
 		sourceColumn: approvalStatus
 
@@ -48,6 +57,7 @@ table Butikkordre
 
 	column Godkjenning
 		dataType: string
+		lineageTag: 0335cea1-b2a1-4655-ba76-de06c9c7d665
 		summarizeBy: none
 		sourceColumn: Godkjenning
 
@@ -69,3 +79,4 @@ table Butikkordre
 				    Typer
 
 	annotation PBI_ResultType = Table
+

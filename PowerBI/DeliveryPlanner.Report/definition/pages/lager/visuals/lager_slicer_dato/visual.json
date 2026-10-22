@@ -5,8 +5,8 @@
     "x": 0,
     "y": 0,
     "z": 24000,
-    "width": 320,
     "height": 70,
+    "width": 320,
     "tabOrder": 24000
   },
   "visual": {
@@ -27,13 +27,13 @@
                 }
               },
               "queryRef": "Dato.Dato",
-              "nativeQueryRef": "Dato"
+              "nativeQueryRef": "Dato",
+              "active": true
             }
           ]
         }
       }
     },
-    "drillFilterOtherVisuals": true,
     "objects": {
       "data": [
         {
@@ -70,6 +70,7 @@
           }
         }
       ]
-    }
+    },
+    "drillFilterOtherVisuals": true
   }
 }

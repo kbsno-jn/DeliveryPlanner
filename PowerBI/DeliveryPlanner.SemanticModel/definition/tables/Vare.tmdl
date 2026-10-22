@@ -1,7 +1,9 @@
 table Vare
+	lineageTag: 3d39b00d-8010-440a-832f-965c71cf9be4
 
 	column Varenr
 		dataType: string
+		lineageTag: ecfc7097-5509-4245-8f73-07bf86b5ad0a
 		summarizeBy: none
 		sourceColumn: number
 
@@ -9,6 +11,7 @@ table Vare
 
 	column Varenavn
 		dataType: string
+		lineageTag: 66a3163d-0849-4fd1-94e4-ff622e1d865e
 		summarizeBy: none
 		sourceColumn: displayName
 
@@ -16,6 +19,7 @@ table Vare
 
 	column Varekategori
 		dataType: string
+		lineageTag: a007ce14-976a-43ee-b3d9-5686301bba58
 		summarizeBy: none
 		sourceColumn: itemCategoryCode
 
@@ -23,6 +27,7 @@ table Vare
 
 	column Enhet
 		dataType: string
+		lineageTag: 0d46f8ec-d40a-44e2-9e27-9cdc32ee5416
 		summarizeBy: none
 		sourceColumn: baseUnitOfMeasureCode
 
@@ -31,6 +36,7 @@ table Vare
 	column Enhetskost
 		dataType: double
 		formatString: #,0.00
+		lineageTag: 7413a898-a833-4e95-9a34-a3bbd4bc00b4
 		summarizeBy: none
 		sourceColumn: unitCost
 
@@ -47,3 +53,4 @@ table Vare
 				    Typer
 
 	annotation PBI_ResultType = Table
+

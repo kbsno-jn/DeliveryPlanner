@@ -1,35 +1,40 @@
 table Dato
+	lineageTag: bd950fc9-885e-4478-8aaf-502f1e2ee822
 	dataCategory: Time
 
 	column Dato
 		dataType: dateTime
-		formatString: dd.mm.yyyy
 		isKey
+		formatString: dd.mm.yyyy
+		lineageTag: 4ff978c3-5682-437b-8573-b2e774d33ac8
 		summarizeBy: none
 		sourceColumn: Dato
 
 		annotation SummarizationSetBy = User
 
-	column 'År'
+	column År
 		dataType: int64
 		formatString: 0
+		lineageTag: 47d7fd92-3c35-4872-b605-7b3e05ded2dd
 		summarizeBy: none
 		sourceColumn: År
 
 		annotation SummarizationSetBy = User
 
-	column 'Måned'
+	column Måned
 		dataType: string
+		lineageTag: 33047335-e9c9-4da9-bca9-bda649822ed8
 		summarizeBy: none
 		sourceColumn: Måned
-		sortByColumn: 'Månedsnr'
+		sortByColumn: Månedsnr
 
 		annotation SummarizationSetBy = User
 
-	column 'Månedsnr'
+	column Månedsnr
 		dataType: int64
-		formatString: 0
 		isHidden
+		formatString: 0
+		lineageTag: 6299a914-82c7-442a-9002-3569840694d4
 		summarizeBy: none
 		sourceColumn: Månedsnr
 
@@ -37,6 +42,7 @@ table Dato
 
 	column Uke
 		dataType: string
+		lineageTag: 84aa4068-6ae6-4269-ab9f-7740b894da92
 		summarizeBy: none
 		sourceColumn: Uke
 
@@ -45,6 +51,7 @@ table Dato
 	column Ukestart
 		dataType: dateTime
 		formatString: dd.mm.yyyy
+		lineageTag: 94c8389c-9c0c-4515-9e20-024916c23109
 		summarizeBy: none
 		sourceColumn: Ukestart
 
@@ -52,6 +59,7 @@ table Dato
 
 	column Ukedag
 		dataType: string
+		lineageTag: 62f7d6e2-0633-4a1b-b13d-18588ef80998
 		summarizeBy: none
 		sourceColumn: Ukedag
 		sortByColumn: Ukedagnr
@@ -60,8 +68,9 @@ table Dato
 
 	column Ukedagnr
 		dataType: int64
-		formatString: 0
 		isHidden
+		formatString: 0
+		lineageTag: a886263f-e8e5-4c38-8009-0e86bcb41921
 		summarizeBy: none
 		sourceColumn: Ukedagnr
 
@@ -93,3 +102,4 @@ table Dato
 				    Ukedag
 
 	annotation PBI_ResultType = Table
+

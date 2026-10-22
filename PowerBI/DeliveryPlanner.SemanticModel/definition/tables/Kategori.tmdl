@@ -1,7 +1,9 @@
 table Kategori
+	lineageTag: e0e7ec5c-2a33-4267-a8fe-0e39322ccd23
 
 	column Kategorikode
 		dataType: string
+		lineageTag: 5cdbfb60-a11b-466a-95ba-4c7d16e8dda2
 		summarizeBy: none
 		sourceColumn: code
 
@@ -9,6 +11,7 @@ table Kategori
 
 	column Kategori
 		dataType: string
+		lineageTag: e5a84305-0aa4-4bcc-a137-d403b74c6c0b
 		summarizeBy: none
 		sourceColumn: description
 
@@ -17,6 +20,7 @@ table Kategori
 	column Dekningsdager
 		dataType: int64
 		formatString: 0
+		lineageTag: 75eff77f-3a20-42d4-bf2d-a97150c24660
 		summarizeBy: none
 		sourceColumn: coverageDays
 
@@ -25,6 +29,7 @@ table Kategori
 	column Fordelingsvekt
 		dataType: double
 		formatString: 0.##
+		lineageTag: 04d3cc72-ec14-4db0-8985-317c62e395ec
 		summarizeBy: none
 		sourceColumn: allocationWeight
 
@@ -41,3 +46,4 @@ table Kategori
 				    Typer
 
 	annotation PBI_ResultType = Table
+

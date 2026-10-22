@@ -5,32 +5,14 @@
     "x": 0,
     "y": 470,
     "z": 10000,
-    "width": 630,
     "height": 250,
+    "width": 630,
     "tabOrder": 10000
   },
   "visual": {
     "visualType": "pivotTable",
     "query": {
       "queryState": {
-        "Rows": {
-          "projections": [
-            {
-              "field": {
-                "Column": {
-                  "Expression": {
-                    "SourceRef": {
-                      "Entity": "Butikk"
-                    }
-                  },
-                  "Property": "Butikk"
-                }
-              },
-              "queryRef": "Butikk.Butikk",
-              "nativeQueryRef": "Butikk"
-            }
-          ]
-        },
         "Columns": {
           "projections": [
             {
@@ -45,7 +27,27 @@
                 }
               },
               "queryRef": "Dato.Uke",
-              "nativeQueryRef": "Uke"
+              "nativeQueryRef": "Uke",
+              "active": true
+            }
+          ]
+        },
+        "Rows": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Butikk"
+                    }
+                  },
+                  "Property": "Butikk"
+                }
+              },
+              "queryRef": "Butikk.Butikk",
+              "nativeQueryRef": "Butikk",
+              "active": true
             }
           ]
         },
@@ -69,7 +71,6 @@
         }
       }
     },
-    "drillFilterOtherVisuals": true,
     "visualContainerObjects": {
       "title": [
         {
@@ -91,6 +92,7 @@
           }
         }
       ]
-    }
+    },
+    "drillFilterOtherVisuals": true
   }
 }

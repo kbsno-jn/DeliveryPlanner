@@ -5,8 +5,8 @@
     "x": 640,
     "y": 200,
     "z": 9000,
-    "width": 625,
     "height": 260,
+    "width": 625,
     "tabOrder": 9000
   },
   "visual": {
@@ -27,7 +27,8 @@
                 }
               },
               "queryRef": "Butikk.Butikk",
-              "nativeQueryRef": "Butikk"
+              "nativeQueryRef": "Butikk",
+              "active": true
             }
           ]
         },
@@ -65,11 +66,9 @@
             },
             "direction": "Ascending"
           }
-        ],
-        "isDefaultSort": false
+        ]
       }
     },
-    "drillFilterOtherVisuals": true,
     "visualContainerObjects": {
       "title": [
         {
@@ -91,6 +90,7 @@
           }
         }
       ]
-    }
+    },
+    "drillFilterOtherVisuals": true
   }
 }

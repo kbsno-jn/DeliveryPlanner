@@ -1,7 +1,9 @@
 table Butikk
+	lineageTag: 132ffb63-8535-4c5d-9171-c963a8124870
 
 	column Butikkode
 		dataType: string
+		lineageTag: 6804443a-1cec-4e68-a0c1-4a7b72783458
 		summarizeBy: none
 		sourceColumn: code
 
@@ -9,6 +11,7 @@ table Butikk
 
 	column Butikk
 		dataType: string
+		lineageTag: 0474b78a-d2d0-4f45-98d5-f417e5a4bc69
 		summarizeBy: none
 		sourceColumn: name
 
@@ -16,6 +19,7 @@ table Butikk
 
 	column Aktivert
 		dataType: boolean
+		lineageTag: a735a977-dcd3-4704-85fa-022fe72e4598
 		summarizeBy: none
 		sourceColumn: deliveryPlannerEnabled
 
@@ -23,6 +27,7 @@ table Butikk
 
 	column Kategorikode
 		dataType: string
+		lineageTag: 4526654c-7a1a-49ac-af4d-e29cd21b1883
 		summarizeBy: none
 		sourceColumn: categoryCode
 
@@ -30,6 +35,7 @@ table Butikk
 
 	column Leveringsdager
 		dataType: string
+		lineageTag: 6a5d612f-817b-49b0-9b65-c8e1c621773e
 		summarizeBy: none
 		sourceColumn: Leveringsdager
 
@@ -58,3 +64,4 @@ table Butikk
 				    Typer
 
 	annotation PBI_ResultType = Table
+

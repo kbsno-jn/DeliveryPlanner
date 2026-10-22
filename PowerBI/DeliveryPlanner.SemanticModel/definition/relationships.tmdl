@@ -23,9 +23,40 @@ relationship rel06_Butikkordre_Butikk
 	toColumn: Butikk.Butikkode
 
 relationship rel07_Kjoring_Dato
-	fromColumn: 'Kjøring'.Planleggingsdato
+	fromColumn: Kjøring.Planleggingsdato
 	toColumn: Dato.Dato
 
 relationship rel08_Butikk_Kategori
 	fromColumn: Butikk.Kategorikode
 	toColumn: Kategori.Kategorikode
+
+relationship 9e7bbfa0-52be-42c7-9651-fd579bb4e9b6
+	joinOnDateBehavior: datePartOnly
+	fromColumn: Beregning.Mottaksdato
+	toColumn: LocalDateTable_8d3c007d-d12e-4766-bf2a-70d827cbf106.Date
+
+relationship c510f809-491e-48e8-8e07-d321ff181496
+	joinOnDateBehavior: datePartOnly
+	fromColumn: Beregning.'Neste mottaksdato'
+	toColumn: LocalDateTable_fcdd1cf5-6c1a-4d72-bbf4-1d09a5431b7b.Date
+
+relationship 0972396b-db1f-499e-bd0c-18193237fa71
+	joinOnDateBehavior: datePartOnly
+	fromColumn: Kjøring.Startet
+	toColumn: LocalDateTable_18150aaf-33b6-4a19-b191-9ef65757e041.Date
+
+relationship 104f91c0-703b-4ffd-b75b-df5ccad3856d
+	joinOnDateBehavior: datePartOnly
+	fromColumn: Kjøring.Avsluttet
+	toColumn: LocalDateTable_31cc227e-10bb-424a-bf04-4d231062794a.Date
+
+relationship b7972e5d-2d8e-48eb-8dc9-5f88da3f2bea
+	joinOnDateBehavior: datePartOnly
+	fromColumn: 'https://api businesscentral dynamics com/v2 0/d0e4f06d-3bd9-4ef4-9aca-5c91f2ac06'.systemCreatedAt
+	toColumn: LocalDateTable_0c9be3f0-81c4-4a93-91cd-821bec30e180.Date
+
+relationship a8f87892-003a-4883-8344-717929bf1385
+	joinOnDateBehavior: datePartOnly
+	fromColumn: 'https://api businesscentral dynamics com/v2 0/d0e4f06d-3bd9-4ef4-9aca-5c91f2ac06'.systemModifiedAt
+	toColumn: LocalDateTable_7dfb2fd5-800f-4f95-8aa9-2e9059960d11.Date
+

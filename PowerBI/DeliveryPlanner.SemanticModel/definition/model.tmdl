@@ -3,7 +3,31 @@ model Model
 	defaultPowerBIDataSourceVersion: powerBI_V3
 	sourceQueryCulture: nb-NO
 	dataAccessOptions
+		fastCombine
 		legacyRedirects
 		returnErrorValuesAsNull
 
-annotation PBI_QueryOrder = ["Tenant","Miljo","FirmaId","RangeStart","RangeEnd","Kilde_DP","Kilde_BC","GyldigeKjoringer","Beregning","Butikkordre","Kjøring","Butikk","Kategori","Vare","Avvik","Dato","_Mål"]
+annotation PBI_QueryOrder = ["Tenant","Miljo","FirmaId","RangeStart","RangeEnd","Kilde_DP","Kilde_BC","GyldigeKjoringer","Beregning","Butikkordre","Kjøring","Butikk","Kategori","Vare","Avvik","Dato","_Mål","https://api businesscentral dynamics com/v2 0/d0e4f06d-3bd9-4ef4-9aca-5c91f2ac06"]
+
+annotation __PBI_TimeIntelligenceEnabled = 1
+
+annotation PBI_ProTooling = ["DevMode"]
+
+ref table Avvik
+ref table Beregning
+ref table Butikk
+ref table Butikkordre
+ref table Dato
+ref table Kategori
+ref table Kjøring
+ref table Vare
+ref table _Mål
+ref table DateTableTemplate_7032c187-0207-4fa9-857f-4a054cd3f241
+ref table LocalDateTable_8d3c007d-d12e-4766-bf2a-70d827cbf106
+ref table LocalDateTable_fcdd1cf5-6c1a-4d72-bbf4-1d09a5431b7b
+ref table LocalDateTable_18150aaf-33b6-4a19-b191-9ef65757e041
+ref table LocalDateTable_31cc227e-10bb-424a-bf04-4d231062794a
+ref table 'https://api businesscentral dynamics com/v2 0/d0e4f06d-3bd9-4ef4-9aca-5c91f2ac06'
+ref table LocalDateTable_0c9be3f0-81c4-4a93-91cd-821bec30e180
+ref table LocalDateTable_7dfb2fd5-800f-4f95-8aa9-2e9059960d11
+

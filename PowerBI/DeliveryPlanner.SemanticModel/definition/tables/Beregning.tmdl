@@ -1,15 +1,20 @@
 table Beregning
+	lineageTag: 55b80678-62cb-44a8-b560-8e304c297801
 
 	column Planleggingsdato
 		dataType: dateTime
 		formatString: dd.mm.yyyy
+		lineageTag: e583eced-04c5-4b3e-9589-61545852d924
 		summarizeBy: none
 		sourceColumn: planningDate
 
 		annotation SummarizationSetBy = User
 
+		annotation UnderlyingDateTimeDataType = Date
+
 	column Varenr
 		dataType: string
+		lineageTag: 490a2cbe-fc91-40d8-a9d1-846eb0811459
 		summarizeBy: none
 		sourceColumn: itemNumber
 
@@ -17,6 +22,7 @@ table Beregning
 
 	column Variant
 		dataType: string
+		lineageTag: 124bc656-487c-4470-8422-49678a379bd5
 		summarizeBy: none
 		sourceColumn: variantCode
 
@@ -24,6 +30,7 @@ table Beregning
 
 	column Butikkode
 		dataType: string
+		lineageTag: e0b7765d-2ed6-405d-b0ac-e3e95b2b0bd4
 		summarizeBy: none
 		sourceColumn: locationCode
 
@@ -32,6 +39,7 @@ table Beregning
 	column Kategorikode
 		dataType: string
 		isHidden
+		lineageTag: d92ed766-b15b-451f-8157-ac61f57d66e3
 		summarizeBy: none
 		sourceColumn: categoryCode
 
@@ -40,6 +48,7 @@ table Beregning
 	column 'Solgt antall'
 		dataType: double
 		formatString: #,0.##
+		lineageTag: a2e9d2f4-bd4a-4a82-a252-c3459aad77cc
 		summarizeBy: sum
 		sourceColumn: soldQuantity
 
@@ -48,6 +57,7 @@ table Beregning
 	column 'Dager på lager'
 		dataType: int64
 		formatString: 0
+		lineageTag: e6097ff2-b6ef-445a-a027-067acff9ac84
 		summarizeBy: sum
 		sourceColumn: daysInStock
 
@@ -55,6 +65,7 @@ table Beregning
 
 	column 'Solgt i går'
 		dataType: boolean
+		lineageTag: 2511a797-a5c4-40a3-bcc4-5f0c77606a8a
 		summarizeBy: none
 		sourceColumn: soldLastDay
 
@@ -63,6 +74,7 @@ table Beregning
 	column 'Daglig salg'
 		dataType: double
 		formatString: #,0.00
+		lineageTag: 22d95963-5ceb-40cb-a8d7-a9758236a917
 		summarizeBy: average
 		sourceColumn: dailySales
 
@@ -71,6 +83,7 @@ table Beregning
 	column 'Dager med dekning'
 		dataType: double
 		formatString: #,0.0
+		lineageTag: 59a02728-d0ea-4465-86c4-c59000ae211b
 		summarizeBy: average
 		sourceColumn: daysOfCover
 
@@ -78,6 +91,7 @@ table Beregning
 
 	column 'Leveres nå'
 		dataType: boolean
+		lineageTag: 0c0b70c9-21d0-449c-add2-71aa7127c2fb
 		summarizeBy: none
 		sourceColumn: shipsNow
 
@@ -86,30 +100,48 @@ table Beregning
 	column Mottaksdato
 		dataType: dateTime
 		formatString: dd.mm.yyyy
+		lineageTag: e1623ab9-e6ec-44d1-baa0-2a34b6ab343d
 		summarizeBy: none
 		sourceColumn: receiptDate
 
+		variation Variasjon
+			isDefault
+			relationship: 9e7bbfa0-52be-42c7-9651-fd579bb4e9b6
+			defaultHierarchy: LocalDateTable_8d3c007d-d12e-4766-bf2a-70d827cbf106.Datohierarki
+
 		annotation SummarizationSetBy = User
+
+		annotation UnderlyingDateTimeDataType = Date
 
 	column 'Neste mottaksdato'
 		dataType: dateTime
 		formatString: dd.mm.yyyy
+		lineageTag: 1fef4b8d-5686-43df-b3ae-efa5da90563e
 		summarizeBy: none
 		sourceColumn: nextReceiptDate
 
+		variation Variasjon
+			isDefault
+			relationship: c510f809-491e-48e8-8e07-d321ff181496
+			defaultHierarchy: LocalDateTable_fcdd1cf5-6c1a-4d72-bbf4-1d09a5431b7b.Datohierarki
+
 		annotation SummarizationSetBy = User
+
+		annotation UnderlyingDateTimeDataType = Date
 
 	column Dekningsdager
 		dataType: int64
 		formatString: 0
+		lineageTag: f886e729-9a6d-4648-9963-db0d5d5c9803
 		summarizeBy: none
 		sourceColumn: coverageDays
 
 		annotation SummarizationSetBy = User
 
-	column 'Lagermål'
+	column Lagermål
 		dataType: double
 		formatString: #,0.##
+		lineageTag: 294a1058-2181-4dca-b4ea-cc96f793ace7
 		summarizeBy: sum
 		sourceColumn: targetQuantity
 
@@ -118,6 +150,7 @@ table Beregning
 	column Makslager
 		dataType: double
 		formatString: #,0.##
+		lineageTag: d3b38e9b-3dea-401f-81bd-3cdaa3178db0
 		summarizeBy: sum
 		sourceColumn: maximumInventory
 
@@ -126,22 +159,25 @@ table Beregning
 	column Beholdning
 		dataType: double
 		formatString: #,0.##
+		lineageTag: 4e3cd4f3-eaee-42ff-ab51-bfd4399213d9
 		summarizeBy: sum
 		sourceColumn: inventory
 
 		annotation SummarizationSetBy = User
 
-	column 'Inngående'
+	column Inngående
 		dataType: double
 		formatString: #,0.##
+		lineageTag: 5da29c40-f2fb-456b-99e6-7bcb3b65284e
 		summarizeBy: sum
 		sourceColumn: incomingQuantity
 
 		annotation SummarizationSetBy = User
 
-	column 'Utgående'
+	column Utgående
 		dataType: double
 		formatString: #,0.##
+		lineageTag: 813ea2df-8938-44ea-8e2e-7b8557ed9667
 		summarizeBy: sum
 		sourceColumn: outgoingQuantity
 
@@ -150,6 +186,7 @@ table Beregning
 	column 'Ledig kapasitet'
 		dataType: double
 		formatString: #,0.##
+		lineageTag: 2f06d29b-9424-43c4-b1e3-3ed5a8d4f90d
 		summarizeBy: sum
 		sourceColumn: capacityQuantity
 
@@ -158,6 +195,7 @@ table Beregning
 	column Behov
 		dataType: double
 		formatString: #,0.##
+		lineageTag: afcbbd9b-a79b-4f90-a8f7-d4af8336cb1c
 		summarizeBy: sum
 		sourceColumn: needQuantity
 
@@ -166,6 +204,7 @@ table Beregning
 	column Standardforslag
 		dataType: double
 		formatString: #,0.##
+		lineageTag: 56f320fb-ecc9-4d9e-877d-1135a6423776
 		summarizeBy: sum
 		sourceColumn: suggestedQuantity
 
@@ -174,6 +213,7 @@ table Beregning
 	column Tildelt
 		dataType: double
 		formatString: #,0.##
+		lineageTag: b295f0d4-3de6-4bb1-a009-c7f654850c94
 		summarizeBy: sum
 		sourceColumn: allocatedQuantity
 
@@ -182,6 +222,7 @@ table Beregning
 	column Udekket
 		dataType: double
 		formatString: #,0.##
+		lineageTag: be806f0a-f435-454c-a1f3-169982dcac93
 		summarizeBy: sum
 		sourceColumn: unmetQuantity
 
@@ -190,6 +231,7 @@ table Beregning
 	column Avvikskode
 		dataType: string
 		isHidden
+		lineageTag: 87e034b5-f3a7-4a0d-96db-1ed7bd6517a6
 		summarizeBy: none
 		sourceColumn: exception
 
@@ -197,6 +239,7 @@ table Beregning
 
 	column Begrunnelse
 		dataType: string
+		lineageTag: 71fa34ac-642d-4b21-bb9c-0d05d257c821
 		summarizeBy: none
 		sourceColumn: reason
 
@@ -204,8 +247,9 @@ table Beregning
 
 	column Analysedager
 		dataType: int64
-		formatString: 0
 		isHidden
+		formatString: 0
+		lineageTag: a2138fae-506e-4ae7-9148-ac3c4fd8bcee
 		summarizeBy: none
 		sourceColumn: salesHistoryDays
 
@@ -226,3 +270,4 @@ table Beregning
 				    Typer
 
 	annotation PBI_ResultType = Table
+

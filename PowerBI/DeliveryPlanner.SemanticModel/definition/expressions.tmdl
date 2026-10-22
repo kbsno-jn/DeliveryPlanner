@@ -1,16 +1,26 @@
-expression Tenant = "00000000-0000-0000-0000-000000000000" meta [IsParameterQuery = true, Type = "Text", IsParameterQueryRequired = true]
+expression Tenant = "d0e4f06d-3bd9-4ef4-9aca-5c91f2ac06fb" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+	lineageTag: b7245e80-4ff1-4b71-b76f-fe07408afdde
+
 	annotation PBI_ResultType = Text
 
-expression Miljo = "Production" meta [IsParameterQuery = true, Type = "Text", IsParameterQueryRequired = true]
+expression Miljo = "Delivery_Plan" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+	lineageTag: 18303961-f091-42e0-acfa-d2016ee2cf76
+
 	annotation PBI_ResultType = Text
 
-expression FirmaId = "00000000-0000-0000-0000-000000000000" meta [IsParameterQuery = true, Type = "Text", IsParameterQueryRequired = true]
+expression FirmaId = "453dc166-e941-f011-be59-000d3a878926" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+	lineageTag: 70de8bce-25e7-48d3-9d76-563654e83d6c
+
 	annotation PBI_ResultType = Text
 
-expression RangeStart = #datetime(2025, 1, 1, 0, 0, 0) meta [IsParameterQuery = true, Type = "DateTime", IsParameterQueryRequired = true]
+expression RangeStart = #datetime(2025, 1, 1, 0, 0, 0) meta [IsParameterQuery=true, Type="DateTime", IsParameterQueryRequired=true]
+	lineageTag: 157e49a7-b710-4d90-a26f-6b54e54cb291
+
 	annotation PBI_ResultType = DateTime
 
-expression RangeEnd = #datetime(2035, 1, 1, 0, 0, 0) meta [IsParameterQuery = true, Type = "DateTime", IsParameterQueryRequired = true]
+expression RangeEnd = #datetime(2035, 1, 1, 0, 0, 0) meta [IsParameterQuery=true, Type="DateTime", IsParameterQueryRequired=true]
+	lineageTag: 72dbb881-3d59-40d6-941b-5088f362c70f
+
 	annotation PBI_ResultType = DateTime
 
 expression Kilde_DP =
@@ -20,6 +30,8 @@ expression Kilde_DP =
 		            & "/api/knowit/deliveryPlanner/v1.0/companies(" & FirmaId & ")/" & Entitet,
 		        null,
 		        [Implementation = "2.0"])
+	lineageTag: cde5ffdd-d31e-4ba4-b3d4-d07fec37bbb5
+
 	annotation PBI_ResultType = Function
 
 expression Kilde_BC =
@@ -29,6 +41,8 @@ expression Kilde_BC =
 		            & "/api/v2.0/companies(" & FirmaId & ")/" & Entitet,
 		        null,
 		        [Implementation = "2.0"])
+	lineageTag: 80e81097-e36f-4347-b1f4-a215aaa25326
+
 	annotation PBI_ResultType = Function
 
 expression GyldigeKjoringer =
@@ -40,4 +54,7 @@ expression GyldigeKjoringer =
 		    Valgt = Table.SelectColumns(Utvidet, {"runId", "salesHistoryDays"})
 		in
 		    Valgt
+	lineageTag: 6a84517f-af78-4a15-8e3a-efdfbab2368f
+
 	annotation PBI_ResultType = Table
+

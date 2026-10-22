@@ -1,8 +1,10 @@
 table Avvik
+	lineageTag: d4a30d33-76e9-459a-ac8c-6ab9a90c5292
 
 	column Avvikskode
 		dataType: string
 		isHidden
+		lineageTag: 2b83763f-ae68-4627-94bb-ffacfa902297
 		summarizeBy: none
 		sourceColumn: Avvikskode
 
@@ -10,6 +12,7 @@ table Avvik
 
 	column Avvik
 		dataType: string
+		lineageTag: 37759941-583f-462d-815c-abfec85d33c2
 		summarizeBy: none
 		sourceColumn: Avvik
 		sortByColumn: Sortering
@@ -18,8 +21,9 @@ table Avvik
 
 	column Sortering
 		dataType: int64
-		formatString: 0
 		isHidden
+		formatString: 0
+		lineageTag: 80b4acaf-781b-4036-a6ff-475cd7928ac0
 		summarizeBy: none
 		sourceColumn: Sortering
 
@@ -41,3 +45,4 @@ table Avvik
 				    Tabell
 
 	annotation PBI_ResultType = Table
+

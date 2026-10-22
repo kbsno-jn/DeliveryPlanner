@@ -1,0 +1,106 @@
+table 'https://api businesscentral dynamics com/v2 0/d0e4f06d-3bd9-4ef4-9aca-5c91f2ac06'
+	lineageTag: cdb566fe-dca1-466a-869e-5bb27f6aeef2
+
+	column id
+		dataType: string
+		lineageTag: 36b54b21-6542-4c29-b53a-2d16a06c3342
+		summarizeBy: none
+		sourceColumn: id
+
+		annotation SummarizationSetBy = Automatic
+
+	column systemVersion
+		dataType: string
+		lineageTag: 667cff76-e6bc-4c21-821d-bce663871691
+		summarizeBy: none
+		sourceColumn: systemVersion
+
+		annotation SummarizationSetBy = Automatic
+
+	column timestamp
+		dataType: int64
+		formatString: 0
+		lineageTag: 86f1112f-cb0a-4691-b4fe-39a56f1f7ce3
+		summarizeBy: sum
+		sourceColumn: timestamp
+
+		annotation SummarizationSetBy = Automatic
+
+	column name
+		dataType: string
+		lineageTag: 82476529-fc69-47c2-939e-dc63fbb95c64
+		summarizeBy: none
+		sourceColumn: name
+
+		annotation SummarizationSetBy = Automatic
+
+	column displayName
+		dataType: string
+		lineageTag: c235df0d-a19f-4e22-8d93-66fa02cd9f7c
+		summarizeBy: none
+		sourceColumn: displayName
+
+		annotation SummarizationSetBy = Automatic
+
+	column businessProfileId
+		dataType: string
+		lineageTag: 4c14dcce-cd3f-4021-8373-e99d1e0404f7
+		summarizeBy: none
+		sourceColumn: businessProfileId
+
+		annotation SummarizationSetBy = Automatic
+
+	column systemCreatedAt
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 6d0868fa-437b-4a0a-9a74-7ea2f4e789cd
+		summarizeBy: none
+		sourceColumn: systemCreatedAt
+
+		variation Variasjon
+			isDefault
+			relationship: b7972e5d-2d8e-48eb-8dc9-5f88da3f2bea
+			defaultHierarchy: LocalDateTable_0c9be3f0-81c4-4a93-91cd-821bec30e180.Datohierarki
+
+		annotation SummarizationSetBy = Automatic
+
+	column systemCreatedBy
+		dataType: string
+		lineageTag: 412f7f8a-6deb-4c04-8213-6780b83daa38
+		summarizeBy: none
+		sourceColumn: systemCreatedBy
+
+		annotation SummarizationSetBy = Automatic
+
+	column systemModifiedAt
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 90095dd0-03da-4735-bc8e-0cd4da92e33d
+		summarizeBy: none
+		sourceColumn: systemModifiedAt
+
+		variation Variasjon
+			isDefault
+			relationship: a8f87892-003a-4883-8344-717929bf1385
+			defaultHierarchy: LocalDateTable_7dfb2fd5-800f-4f95-8aa9-2e9059960d11.Datohierarki
+
+		annotation SummarizationSetBy = Automatic
+
+	column systemModifiedBy
+		dataType: string
+		lineageTag: cb1992b3-07ed-4c45-8cdf-d3cbbb7d8f30
+		summarizeBy: none
+		sourceColumn: systemModifiedBy
+
+		annotation SummarizationSetBy = Automatic
+
+	partition 'https://api businesscentral dynamics com/v2 0/d0e4f06d-3bd9-4ef4-9aca-5c91f2ac06' = m
+		mode: import
+		source =
+				let
+				  Kilde = OData.Feed("https://api.businesscentral.dynamics.com/v2.0/d0e4f06d-3bd9-4ef4-9aca-5c91f2ac06fb/Delivery_Plan/api/v2.0/companies", null, [Implementation="2.0"])
+				in
+				  Kilde
+
+	annotation PBI_ResultType = Table
+

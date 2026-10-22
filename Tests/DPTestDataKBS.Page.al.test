@@ -1,5 +1,7 @@
 namespace Knowit.DeliveryPlanner;
 
+using System.Threading;
+
 page 70010 "DP Test Data KBS"
 {
     Caption = 'DeliveryPlanner testdata';
@@ -54,6 +56,38 @@ page 70010 "DP Test Data KBS"
                     TestData.ToggleInvalidSetup();
                 end;
             }
+            action(CreateDemoData)
+            {
+                Caption = 'Opprett demodatasett (stort)';
+                ApplicationArea = All;
+                Image = CreateDocuments;
+                ToolTip = 'Oppretter hovedlager, 15 butikker, 80 varer, 56 dager bokført salg og 8 uker kjøringshistorikk i bakgrunnen. Krever et selskap med standard bokføringsoppsett, for eksempel CRONUS. Tar typisk 30–60 minutter.';
+
+                trigger OnAction()
+                begin
+                    DemoData.Schedule();
+                end;
+            }
+            action(PrepareToday)
+            {
+                Caption = 'Klargjør demo for i dag';
+                ApplicationArea = All;
+                Image = Calendar;
+                ToolTip = 'Setter leveringsdagen for Bodø slik at en stor ordre venter på godkjenning når DeliveryPlanner kjøres i dag.';
+
+                trigger OnAction()
+                begin
+                    DemoData.PrepareToday(true);
+                end;
+            }
+            action(JobQueue)
+            {
+                Caption = 'Jobbkøposter';
+                ApplicationArea = All;
+                Image = JobListSetup;
+                ToolTip = 'Viser status for jobben som oppretter demodataene.';
+                RunObject = page "Job Queue Entries";
+            }
             action(OpenSetup)
             {
                 Caption = 'Åpne DeliveryPlanner-oppsett';
@@ -66,10 +100,13 @@ page 70010 "DP Test Data KBS"
         area(Promoted)
         {
             actionref(CreateAllTestDataPromoted; CreateAllTestData) { }
+            actionref(CreateDemoDataPromoted; CreateDemoData) { }
+            actionref(PrepareTodayPromoted; PrepareToday) { }
             actionref(OpenSetupPromoted; OpenSetup) { }
         }
     }
 
     var
         TestData: Codeunit "DP Test Data KBS";
+        DemoData: Codeunit "DP Demo Data KBS";
 }

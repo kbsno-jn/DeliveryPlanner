@@ -1,32 +1,40 @@
-table '_Mål'
+table _Mål
+	lineageTag: 4b0d2115-2c59-4699-bc9f-9a2e0aafef0c
 
 	measure 'Beregnede linjer' = CALCULATE ( COUNTROWS ( Beregning ), Beregning[Avvikskode] <> "Missing_x0020_Setup" )
 		formatString: #,0
 		displayFolder: Grunnlag
+		lineageTag: ed954cba-1e1c-4aee-a0f8-ec93145cae35
 
 	measure 'Siste dato' = MAX ( Beregning[Planleggingsdato] )
 		formatString: dd.mm.yyyy
 		displayFolder: Grunnlag
+		lineageTag: e9d10758-d8cf-4c0b-bce3-4518f73d5a48
 
 	measure Netter = DISTINCTCOUNT ( Beregning[Planleggingsdato] )
 		formatString: #,0
 		displayFolder: Grunnlag
+		lineageTag: fef04fbf-3603-4fdd-8e97-716ccdf48468
 
 	measure 'Tilgjengelighet %' = DIVIDE ( CALCULATE ( [Beregnede linjer], Beregning[Beholdning] > 0 ), [Beregnede linjer] )
 		formatString: 0.0 %
 		displayFolder: Tilgjengelighet
+		lineageTag: b8f61060-5f90-45f3-abdb-a01984dfd5eb
 
 	measure 'Tilgjengelighet forrige periode %' = CALCULATE ( [Tilgjengelighet %], DATEADD ( Dato[Dato], -28, DAY ) )
 		formatString: 0.0 %
 		displayFolder: Tilgjengelighet
+		lineageTag: 5c125dd9-afb8-45a9-9cb3-5413ab88e483
 
 	measure 'Endring tilgjengelighet (pp)' = ( [Tilgjengelighet %] - [Tilgjengelighet forrige periode %] ) * 100
 		formatString: +0.0;-0.0;0.0
 		displayFolder: Tilgjengelighet
+		lineageTag: 88411173-8d50-45d0-8eeb-7eec4805cbdc
 
 	measure 'Mål tilgjengelighet' = 0.95
 		formatString: 0 %
 		displayFolder: Tilgjengelighet
+		lineageTag: 87cd9575-eca4-47f5-beea-0b21bdb2ad38
 
 	measure 'Servicegrad 56 dager %' =
 			VAR d = [Siste dato]
@@ -35,6 +43,7 @@ table '_Mål'
 			    DIVIDE ( SUMX ( Linjer, Beregning[Dager på lager] ), SUMX ( Linjer, Beregning[Analysedager] ) )
 		formatString: 0.0 %
 		displayFolder: Tilgjengelighet
+		lineageTag: b7a198ad-80cb-4dd6-897e-617973eba5b9
 
 	measure 'Tomme varer (siste natt)' =
 			VAR d = [Siste dato]
@@ -42,10 +51,12 @@ table '_Mål'
 			    CALCULATE ( [Beregnede linjer], Beregning[Beholdning] <= 0, Beregning[Planleggingsdato] = d )
 		formatString: #,0
 		displayFolder: Tomme varer
+		lineageTag: 5d56b98b-e57c-4a24-b4dc-3191d32b06ff
 
 	measure 'Tomme butikkdager' = CALCULATE ( [Beregnede linjer], Beregning[Beholdning] <= 0 )
 		formatString: #,0
 		displayFolder: Tomme varer
+		lineageTag: 2c05c7b6-0efe-4f87-84fb-b90ed49cc105
 
 	measure 'Tapte salgsdager (kr)' =
 			SUMX (
@@ -54,26 +65,32 @@ table '_Mål'
 			)
 		formatString: #,0
 		displayFolder: Tomme varer
+		lineageTag: b2e01658-506f-45b5-9d61-96402433e19a
 
 	measure 'Udekket behov (enheter)' = SUM ( Beregning[Udekket] )
 		formatString: #,0
 		displayFolder: Mangel
+		lineageTag: cbfda92c-e32f-423e-991b-7a88a5457267
 
 	measure 'Udekket behov (kr)' = SUMX ( Beregning, Beregning[Udekket] * RELATED ( Vare[Enhetskost] ) )
 		formatString: #,0
 		displayFolder: Mangel
+		lineageTag: 97bd2e7e-1818-4d05-b239-773cfe4a672e
 
 	measure 'Varer med udekket behov' = CALCULATE ( DISTINCTCOUNT ( Beregning[Varenr] ), Beregning[Udekket] > 0 )
 		formatString: #,0
 		displayFolder: Mangel
+		lineageTag: 694ccfc5-fed3-4c1e-b0f1-475dab706460
 
 	measure 'Butikker berørt' = CALCULATE ( DISTINCTCOUNT ( Beregning[Butikkode] ), Beregning[Udekket] > 0 )
 		formatString: #,0
 		displayFolder: Mangel
+		lineageTag: 4b99ca03-aae7-4be2-a9ba-9918062e8ef5
 
 	measure 'Netter med mangel' = CALCULATE ( DISTINCTCOUNT ( Beregning[Planleggingsdato] ), Beregning[Udekket] > 0 )
 		formatString: #,0
 		displayFolder: Mangel
+		lineageTag: a5dca497-bbab-4fb2-b7c2-d903545b5b76
 
 	measure 'Overlager (enheter, siste natt)' =
 			VAR d = [Siste dato]
@@ -84,6 +101,7 @@ table '_Mål'
 			    )
 		formatString: #,0
 		displayFolder: Lager
+		lineageTag: 40dd1907-ba4d-40ff-ae47-656fe4f81a27
 
 	measure 'Overlager (kr, siste natt)' =
 			VAR d = [Siste dato]
@@ -94,6 +112,7 @@ table '_Mål'
 			    )
 		formatString: #,0
 		displayFolder: Lager
+		lineageTag: ddfe6d7c-eaac-48f1-aaab-5b7024e58a83
 
 	measure 'Lagerverdi butikk (kr, siste natt)' =
 			VAR d = [Siste dato]
@@ -104,18 +123,22 @@ table '_Mål'
 			    )
 		formatString: #,0
 		displayFolder: Lager
+		lineageTag: 337367cc-176c-4fe5-bf01-d72bc0fa243a
 
 	measure 'Overlager andel %' = DIVIDE ( [Overlager (kr, siste natt)], [Lagerverdi butikk (kr, siste natt)] )
 		formatString: 0.0 %
 		displayFolder: Lager
+		lineageTag: 02f72426-1256-444a-a054-183932b9bb75
 
 	measure 'Snitt dager med dekning' = AVERAGEX ( FILTER ( Beregning, Beregning[Daglig salg] > 0 ), Beregning[Dager med dekning] )
 		formatString: #,0.0
 		displayFolder: Lager
+		lineageTag: 6fe7229d-01c7-4662-9db8-edc2fbca4549
 
-	measure 'Makslager-treff' = CALCULATE ( [Beregnede linjer], Beregning[Ledig kapasitet] = 0, Beregning[Daglig salg] > 0 )
+	measure Makslager-treff = CALCULATE ( [Beregnede linjer], Beregning[Ledig kapasitet] = 0, Beregning[Daglig salg] > 0 )
 		formatString: #,0
 		displayFolder: Lager
+		lineageTag: ffed0796-cd40-4a7f-bda2-fa607c7505d2
 
 	measure 'Avvik (siste natt)' =
 			VAR d = [Siste dato]
@@ -123,6 +146,7 @@ table '_Mål'
 			    CALCULATE ( COUNTROWS ( Beregning ), Beregning[Avvikskode] <> "None", Beregning[Planleggingsdato] = d )
 		formatString: #,0
 		displayFolder: Avvik
+		lineageTag: 5c894724-74df-4588-8231-89ce2e92587c
 
 	measure 'Mangler oppsett (siste natt)' =
 			VAR d = [Siste dato]
@@ -130,18 +154,22 @@ table '_Mål'
 			    CALCULATE ( COUNTROWS ( Beregning ), Beregning[Avvikskode] = "Missing_x0020_Setup", Beregning[Planleggingsdato] = d )
 		formatString: #,0
 		displayFolder: Avvik
+		lineageTag: 7a820b0c-a972-4030-9d91-61de2b0991d4
 
 	measure Ordrer = COUNTROWS ( Butikkordre )
 		formatString: #,0
 		displayFolder: Ordrer
+		lineageTag: 89b928f4-8999-40f9-b2e8-40585d5774e6
 
 	measure 'Enheter sendt' = SUM ( Butikkordre[Antall] )
 		formatString: #,0
 		displayFolder: Ordrer
+		lineageTag: bb39dc7a-88ce-4e6a-be57-15f8388573d2
 
 	measure 'Ordrer til godkjenning (nå)' = CALCULATE ( COUNTROWS ( Butikkordre ), Butikkordre[Godkjenningskode] = "Awaiting_x0020_Approval", REMOVEFILTERS ( Dato ) )
 		formatString: #,0
 		displayFolder: Ordrer
+		lineageTag: 73e5ef99-cb3d-4b35-9744-a02222f1327a
 
 	measure 'Ordrestørrelse mot snitt' =
 			DIVIDE (
@@ -150,6 +178,7 @@ table '_Mål'
 			)
 		formatString: 0.00
 		displayFolder: Ordrer
+		lineageTag: 20163aec-8d8b-4a85-b60a-84359dd0bc89
 
 	measure 'Tildelt siste natt (enheter)' =
 			VAR d = [Siste dato]
@@ -157,6 +186,7 @@ table '_Mål'
 			    CALCULATE ( SUM ( Beregning[Tildelt] ), Beregning[Planleggingsdato] = d )
 		formatString: #,0
 		displayFolder: Ordrer
+		lineageTag: f159827c-f33f-4b94-95fe-4749cbc1eaef
 
 	measure 'Varelinjer siste natt' =
 			VAR d = [Siste dato]
@@ -164,34 +194,40 @@ table '_Mål'
 			    CALCULATE ( COUNTROWS ( Beregning ), Beregning[Tildelt] > 0, Beregning[Planleggingsdato] = d )
 		formatString: #,0
 		displayFolder: Ordrer
+		lineageTag: 58e729ac-bf43-47b8-a584-f5613217a5db
 
-	measure 'Nattkjøringer' = CALCULATE ( COUNTROWS ( 'Kjøring' ), 'Kjøring'[Opprettet ordrer] = TRUE () )
+	measure Nattkjøringer = CALCULATE ( COUNTROWS ( 'Kjøring' ), 'Kjøring'[Opprettet ordrer] = TRUE () )
 		formatString: #,0
 		displayFolder: Drift
+		lineageTag: 9b109b77-f59e-41ec-a14f-2772a5aa543b
 
 	measure 'Nattjobb OK %' = DIVIDE ( CALCULATE ( [Nattkjøringer], 'Kjøring'[Statuskode] = "Completed" ), [Nattkjøringer] )
 		formatString: 0.0 %
 		displayFolder: Drift
+		lineageTag: 1f91e5b4-2566-4985-88b7-a7798d8fcf9a
 
 	measure 'Snitt kjøretid (min)' = CALCULATE ( AVERAGE ( 'Kjøring'[Kjøretid (min)] ), 'Kjøring'[Statuskode] = "Completed" )
 		formatString: #,0.0
 		displayFolder: Drift
+		lineageTag: 6ea3c442-2ef6-4828-a6c6-6ed72f6b2dd0
 
 	measure Salgsvarsler = CALCULATE ( COUNTROWS ( 'Kjøring' ), 'Kjøring'[Salgsvarsel] = TRUE () )
 		formatString: #,0
 		displayFolder: Drift
+		lineageTag: ffd250eb-639d-42fd-be83-f6e792f33bcf
 
 	column Kolonne
 		dataType: string
 		isHidden
+		lineageTag: d2ca49b3-3b58-4c1f-89e2-7fcbe4353267
 		summarizeBy: none
 		sourceColumn: Kolonne
 
 		annotation SummarizationSetBy = User
 
-	partition '_Mål' = m
+	partition _Mål = m
 		mode: import
-		source =
-				#table(type table [Kolonne = text], {})
+		source = #table(type table [Kolonne = text], {})
 
 	annotation PBI_ResultType = Table
+

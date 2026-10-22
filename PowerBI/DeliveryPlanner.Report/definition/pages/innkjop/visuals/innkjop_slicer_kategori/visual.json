@@ -5,8 +5,8 @@
     "x": 330,
     "y": 0,
     "z": 13000,
-    "width": 300,
     "height": 70,
+    "width": 300,
     "tabOrder": 13000
   },
   "visual": {
@@ -27,13 +27,13 @@
                 }
               },
               "queryRef": "Kategori.Kategori",
-              "nativeQueryRef": "Kategori"
+              "nativeQueryRef": "Kategori",
+              "active": true
             }
           ]
         }
       }
     },
-    "drillFilterOtherVisuals": true,
     "objects": {
       "data": [
         {
@@ -70,6 +70,7 @@
           }
         }
       ]
-    }
+    },
+    "drillFilterOtherVisuals": true
   }
 }
